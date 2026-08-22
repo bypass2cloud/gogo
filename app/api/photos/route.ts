@@ -92,6 +92,19 @@ async function pexels(path: string, apiKey: string, params: Record<string, strin
   return response.json() as Promise<{ photos?: PexelsPhoto[] }>;
 }
 
+function normalizeSearchText(value: string) {
+  return value.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function matchesEveryCondition(photo: PexelsPhoto, tag: string, location: string) {
+  const description = normalizeSearchText(photo.alt ?? "");
+  const requiredTerms = [tag, location]
+    .flatMap((value) => value.split(/[\s,]+/))
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  return requiredTerms.every((term) => description.includes(term));
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const tag = (url.searchParams.get("tag") ?? "").trim().slice(0, 120);
@@ -111,8 +124,10 @@ export async function GET(request: Request) {
     const data = searchTerms
       ? await pexels("/search", apiKey, { query: searchTerms, locale: "ko-KR", per_page: "80", page: "1" })
       : await pexels("/curated", apiKey, { per_page: "80", page: "1" });
-    const list = (data.photos ?? []).filter((item) => `pexels-${item.id}` !== exclude);
-    if (!list.length) return Response.json({ error: "조건에 맞는 다른 사진을 찾지 못했습니다." }, { status: 404 });
+    const list = (data.photos ?? []).filter((item) =>
+      `pexels-${item.id}` !== exclude && (!searchTerms || matchesEveryCondition(item, tag, location))
+    );
+    if (!list.length) return Response.json({ error: "사진 설명에 모든 검색 조건이 포함된 사진을 찾지 못했습니다." }, { status: 404 });
     const raw = list[Math.abs(nonce) % list.length];
     const searchTags = tag.split(/[\s,]+/).filter(Boolean).slice(0, 16);
     const imageUrl = raw.src.large2x ?? raw.src.landscape ?? raw.src.large ?? raw.src.original;
