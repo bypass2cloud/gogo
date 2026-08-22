@@ -212,9 +212,6 @@ export default function Home() {
       {view === "discover" ? (
         <>
           <section className="hero" id="discover">
-            <p className="eyebrow">A WINDOW TO THE WORLD</p>
-            <h1>오늘은 어떤 장면을<br />만나고 싶나요?</h1>
-            <p className="hero-copy">태그와 장소를 골라, 전 세계 사진가의 시선으로 담긴 단 한 장을 발견해보세요.</p>
             <form className="search-card" onSubmit={search}>
               <label><span>태그</span><input name="tag" value={tag} onChange={(event) => setTag(event.target.value)} placeholder="예: 고양이, 건축, 여름" maxLength={120} /></label>
               <label><span>위치</span><input name="location" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="예: 서울, 파리, 제주" maxLength={120} /></label>

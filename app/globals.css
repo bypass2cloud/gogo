@@ -19,11 +19,11 @@ nav { display:flex; align-items:center; gap:28px; }
 .notice { position:fixed; top:88px; left:50%; z-index:20; transform:translateX(-50%); width:min(600px, 90vw); display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; border-radius:10px; box-shadow:0 16px 50px rgba(0,0,0,.2); }
 .error-notice { background:#2b211f; color:#fff; }
 .notice button { border:0; background:none; color:inherit; font-size:24px; cursor:pointer; }
-.hero { padding:72px 5vw 54px; position:relative; }
+.hero { padding:36px 5vw 40px; position:relative; }
 .eyebrow, .photo-kicker { color:var(--orange); font-size:11px; font-weight:900; letter-spacing:.18em; }
 h1 { max-width:1000px; margin:18px 0 20px; font-size:clamp(48px,7.2vw,104px); line-height:.95; letter-spacing:-.07em; font-weight:900; }
 .hero-copy { max-width:580px; color:var(--muted); line-height:1.7; font-size:16px; }
-.search-card { margin-top:42px; display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:12px; max-width:960px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.4); box-shadow:0 18px 55px rgba(50,45,35,.06); }
+.search-card { margin-top:0; display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:12px; max-width:960px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.4); box-shadow:0 18px 55px rgba(50,45,35,.06); }
 .search-card label { display:grid; gap:8px; padding:0 10px; border-right:1px solid #d1cbc0; }
 .search-card label:nth-child(2) { border-right:0; }
 .search-card label span, .comment-form label span { font-size:11px; font-weight:900; letter-spacing:.08em; }
@@ -116,9 +116,9 @@ footer a { color:var(--ink); font-size:12px; font-weight:800; }
 @media (max-width:680px) {
   .topbar { height:64px; padding:0 20px; }
   nav { gap:14px; }
-  .hero { padding:48px 20px 42px; }
+  .hero { padding:24px 20px 32px; }
   h1 { font-size:clamp(44px,14vw,70px); }
-  .search-card { grid-template-columns:1fr; margin-top:30px; }
+  .search-card { grid-template-columns:1fr; margin-top:0; }
   .search-card label { border-right:0; border-bottom:1px solid #d1cbc0; padding:8px 6px 14px; }
   .search-card label:nth-child(2) { border-bottom:0; }
   .photo-frame { min-height:65vh; }
