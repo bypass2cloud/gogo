@@ -19,9 +19,19 @@ export type PhotoRecord = {
 };
 
 export type AlbumItem = PhotoRecord & {
+  membershipId: number;
   albumId: number;
   position: number;
   savedAt: string;
+};
+
+export type AlbumSummary = {
+  id: number;
+  name: string;
+  position: number;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CommentRecord = {

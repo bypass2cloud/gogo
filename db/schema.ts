@@ -28,6 +28,34 @@ export const albumItems = sqliteTable("album_items", {
   index("idx_album_device_position").on(table.deviceId, table.position),
 ]);
 
+export const albums = sqliteTable("albums", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  deviceId: text("device_id").notNull(),
+  name: text("name").notNull(),
+  position: integer("position").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_albums_device_name").on(table.deviceId, table.name),
+  index("idx_albums_device_position").on(table.deviceId, table.position),
+]);
+
+export const albumPhotos = sqliteTable("album_photos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  albumId: integer("album_id").notNull().references(() => albums.id, { onDelete: "cascade" }),
+  itemId: integer("item_id").notNull().references(() => albumItems.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+  savedAt: text("saved_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_album_photos_album_item").on(table.albumId, table.itemId),
+  index("idx_album_photos_album_position").on(table.albumId, table.position),
+]);
+
+export const albumMigrations = sqliteTable("album_migrations", {
+  deviceId: text("device_id").primaryKey(),
+  migratedAt: text("migrated_at").notNull(),
+});
+
 export const comments = sqliteTable("comments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   photoId: text("photo_id").notNull(),

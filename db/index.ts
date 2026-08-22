@@ -37,6 +37,29 @@ export async function ensureSchema() {
     )`),
     db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_album_device_photo ON album_items(device_id, photo_id)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_album_device_position ON album_items(device_id, position)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS albums (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_device_name ON albums(device_id, name)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_albums_device_position ON albums(device_id, position)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS album_photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      item_id INTEGER NOT NULL REFERENCES album_items(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      saved_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_album_photos_album_item ON album_photos(album_id, item_id)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_album_photos_album_position ON album_photos(album_id, position)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS album_migrations (
+      device_id TEXT PRIMARY KEY,
+      migrated_at TEXT NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       photo_id TEXT NOT NULL,

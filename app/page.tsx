@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import type { AlbumItem, CommentRecord, PhotoRecord } from "../lib/types";
+import type { AlbumItem, AlbumSummary, CommentRecord, PhotoRecord } from "../lib/types";
 
 type SearchConditions = { tag: string; location: string };
 
@@ -67,17 +67,25 @@ export default function Home() {
   const [error, setError] = useState("");
   const [demo, setDemo] = useState(false);
   const [deviceId, setDeviceId] = useState("");
+  const [albums, setAlbums] = useState<AlbumSummary[]>([]);
+  const [activeAlbumId, setActiveAlbumId] = useState(0);
   const [album, setAlbum] = useState<AlbumItem[]>([]);
+  const [newAlbumName, setNewAlbumName] = useState("");
+  const [renameAlbumId, setRenameAlbumId] = useState(0);
+  const [renameAlbumName, setRenameAlbumName] = useState("");
+  const [deleteConfirmAlbumId, setDeleteConfirmAlbumId] = useState(0);
   const [comments, setComments] = useState<CommentRecord[]>([]);
   const [commentName, setCommentName] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
 
   const isSaved = useMemo(() => album.some((item) => item.id === photo.id), [album, photo.id]);
+  const activeAlbum = useMemo(() => albums.find((item) => item.id === activeAlbumId) ?? null, [albums, activeAlbumId]);
+  const totalSaved = useMemo(() => albums.reduce((sum, item) => sum + item.itemCount, 0), [albums]);
 
-  const loadAlbum = useCallback(async (id: string) => {
+  const loadAlbumItems = useCallback(async (id: string, albumId: number) => {
     try {
-      const response = await fetch(`/api/album?deviceId=${encodeURIComponent(id)}`);
+      const response = await fetch(`/api/album?deviceId=${encodeURIComponent(id)}&albumId=${albumId}`);
       const data = await response.json() as { items?: AlbumItem[]; error?: string };
       if (!response.ok) throw new Error(data.error);
       setAlbum(data.items ?? []);
@@ -85,6 +93,24 @@ export default function Home() {
       setError("앨범을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
     }
   }, []);
+
+  const loadAlbums = useCallback(async (id: string, preferredAlbumId = 0) => {
+    try {
+      const response = await fetch(`/api/albums?deviceId=${encodeURIComponent(id)}`);
+      const data = await response.json() as { albums?: AlbumSummary[]; error?: string };
+      if (!response.ok) throw new Error(data.error);
+      const nextAlbums = data.albums ?? [];
+      setAlbums(nextAlbums);
+      const targetId = nextAlbums.some((item) => item.id === preferredAlbumId) ? preferredAlbumId : (nextAlbums[0]?.id ?? 0);
+      setActiveAlbumId(targetId);
+      if (targetId) await loadAlbumItems(id, targetId);
+      else setAlbum([]);
+      return targetId;
+    } catch {
+      setError("앨범을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return 0;
+    }
+  }, [loadAlbumItems]);
 
   const loadComments = useCallback(async (photoId: string) => {
     if (!photoId || photoId === "loading") return;
@@ -126,9 +152,9 @@ export default function Home() {
     setTag(savedConditions.tag);
     setLocation(savedConditions.location);
     setConditions(savedConditions);
-    void loadAlbum(id);
+    void loadAlbums(id);
     void fetchPhoto(savedConditions);
-  }, [fetchPhoto, loadAlbum]);
+  }, [fetchPhoto, loadAlbums]);
 
   function rememberConditions(next: SearchConditions) {
     setConditions(next);
@@ -144,16 +170,16 @@ export default function Home() {
   }
 
   async function savePhoto() {
-    if (!deviceId || isSaved || photo.id === "loading") return;
+    if (!deviceId || !activeAlbumId || isSaved || photo.id === "loading") return;
     try {
       const response = await fetch("/api/album", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId, photo }),
+        body: JSON.stringify({ deviceId, albumId: activeAlbumId, photo }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error);
-      await loadAlbum(deviceId);
+      await loadAlbums(deviceId, activeAlbumId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "앨범에 저장하지 못했습니다.");
     }
@@ -161,10 +187,11 @@ export default function Home() {
 
   async function deleteItem(id: number) {
     const previous = album;
-    setAlbum((items) => items.filter((item) => item.albumId !== id));
+    setAlbum((items) => items.filter((item) => item.membershipId !== id));
     try {
       const response = await fetch(`/api/album?id=${id}&deviceId=${encodeURIComponent(deviceId)}`, { method: "DELETE" });
       if (!response.ok) throw new Error();
+      await loadAlbums(deviceId, activeAlbumId);
     } catch {
       setAlbum(previous);
       setError("앨범에서 사진을 삭제하지 못했습니다.");
@@ -181,12 +208,76 @@ export default function Home() {
       const response = await fetch("/api/album", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId, orderedIds: reordered.map((item) => item.albumId) }),
+        body: JSON.stringify({ deviceId, albumId: activeAlbumId, orderedIds: reordered.map((item) => item.membershipId) }),
       });
       if (!response.ok) throw new Error();
     } catch {
       setAlbum(album);
       setError("앨범 순서를 변경하지 못했습니다.");
+    }
+  }
+
+  async function selectAlbum(albumId: number) {
+    setActiveAlbumId(albumId);
+    setDeleteConfirmAlbumId(0);
+    setRenameAlbumId(0);
+    setRenameAlbumName("");
+    await loadAlbumItems(deviceId, albumId);
+  }
+
+  async function createAlbum(event: FormEvent) {
+    event.preventDefault();
+    const name = newAlbumName.trim();
+    if (!name || !deviceId) return;
+    try {
+      const response = await fetch("/api/albums", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, name }),
+      });
+      const data = await response.json() as { albumId?: number; error?: string };
+      if (!response.ok || !data.albumId) throw new Error(data.error);
+      setNewAlbumName("");
+      await loadAlbums(deviceId, data.albumId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "앨범을 만들지 못했습니다.");
+    }
+  }
+
+  async function renameAlbum(event: FormEvent) {
+    event.preventDefault();
+    const name = renameAlbumName.trim();
+    if (!name || !renameAlbumId) return;
+    try {
+      const response = await fetch("/api/albums", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, albumId: renameAlbumId, name }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error);
+      setRenameAlbumId(0);
+      setRenameAlbumName("");
+      await loadAlbums(deviceId, activeAlbumId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "앨범 이름을 변경하지 못했습니다.");
+    }
+  }
+
+  async function deleteAlbum(albumId: number) {
+    if (deleteConfirmAlbumId !== albumId) {
+      setDeleteConfirmAlbumId(albumId);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/albums?deviceId=${encodeURIComponent(deviceId)}&albumId=${albumId}`, { method: "DELETE" });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error);
+      setDeleteConfirmAlbumId(0);
+      setRenameAlbumId(0);
+      await loadAlbums(deviceId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "앨범을 삭제하지 못했습니다.");
     }
   }
 
@@ -228,7 +319,7 @@ export default function Home() {
         </button>
         <nav aria-label="주요 메뉴">
           <button className={`nav-link ${view === "discover" ? "active" : ""}`} type="button" onClick={() => setView("discover")}>발견</button>
-          <button className={`nav-link ${view === "album" ? "active" : ""}`} type="button" onClick={() => setView("album")}>내 앨범 <span className="count">{album.length}</span></button>
+          <button className={`nav-link ${view === "album" ? "active" : ""}`} type="button" onClick={() => setView("album")}>내 앨범 <span className="count">{totalSaved}</span></button>
         </nav>
       </header>
 
@@ -254,7 +345,12 @@ export default function Home() {
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
               <div className="photo-counter">ONE PHOTO · ONE MOMENT</div>
               <div className="photo-actions">
-                <button className={isSaved ? "saved" : ""} type="button" onClick={savePhoto} aria-label={isSaved ? "앨범에 저장됨" : "앨범에 저장"} disabled={isSaved}>{isSaved ? "♥" : "♡"}</button>
+                <div className="save-cluster">
+                  <select value={activeAlbumId} onChange={(event) => void selectAlbum(Number(event.target.value))} aria-label="사진을 저장할 앨범">
+                    {albums.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+                  </select>
+                  <button className={isSaved ? "saved" : ""} type="button" onClick={savePhoto} aria-label={isSaved ? `${activeAlbum?.name ?? "앨범"}에 저장됨` : `${activeAlbum?.name ?? "앨범"}에 저장`} disabled={isSaved || !activeAlbumId}>{isSaved ? "♥" : "♡"}</button>
+                </div>
                 <button type="button" onClick={() => fetchPhoto(conditions, photo.id)} disabled={loading}>다른 사진 <span aria-hidden="true">↻</span></button>
               </div>
             </div>
@@ -294,13 +390,26 @@ export default function Home() {
         </>
       ) : (
         <section className="album-section" id="album">
-          <div className="album-header"><div><p className="eyebrow">MY VISUAL ARCHIVE</p><h1>마음에 남은<br />장면들</h1></div><p>저장한 사진을 다시 열어보거나, 화살표로 순서를 바꾸고 앨범에서 삭제할 수 있습니다.</p></div>
+          <div className="album-header"><div><p className="eyebrow">MY VISUAL ARCHIVE</p><h1>마음에 남은<br />장면들</h1></div><p>여러 앨범을 만들고 이름을 바꾸거나 삭제할 수 있습니다. 각 앨범 안에서는 사진 순서도 자유롭게 정리해보세요.</p></div>
+          <div className="album-manager">
+            <div className="album-tabs" role="tablist" aria-label="내 앨범 목록">
+              {albums.map((item) => <button className={item.id === activeAlbumId ? "active" : ""} type="button" role="tab" aria-selected={item.id === activeAlbumId} key={item.id} onClick={() => void selectAlbum(item.id)}><span>{item.name}</span><small>{item.itemCount}</small></button>)}
+            </div>
+            <form className="album-create" onSubmit={createAlbum}>
+              <label htmlFor="new-album-name">새 앨범</label>
+              <input id="new-album-name" value={newAlbumName} onChange={(event) => setNewAlbumName(event.target.value)} placeholder="예: 서울의 밤" maxLength={50} />
+              <button type="submit" disabled={!newAlbumName.trim()}>만들기</button>
+            </form>
+          </div>
+          {activeAlbum && <div className="active-album-bar">
+            {renameAlbumId === activeAlbum.id ? <form onSubmit={renameAlbum} className="album-rename"><input value={renameAlbumName} onChange={(event) => setRenameAlbumName(event.target.value)} maxLength={50} autoFocus aria-label="새 앨범 이름" /><button type="submit" disabled={!renameAlbumName.trim()}>저장</button><button type="button" onClick={() => setRenameAlbumId(0)}>취소</button></form> : <div><div><small>선택한 앨범</small><h2>{activeAlbum.name}</h2></div><div className="album-management-actions"><button type="button" onClick={() => { setRenameAlbumId(activeAlbum.id); setRenameAlbumName(activeAlbum.name); setDeleteConfirmAlbumId(0); }}>이름 변경</button><button className={deleteConfirmAlbumId === activeAlbum.id ? "confirm-delete" : ""} type="button" onClick={() => void deleteAlbum(activeAlbum.id)}>{deleteConfirmAlbumId === activeAlbum.id ? "정말 삭제" : "앨범 삭제"}</button>{deleteConfirmAlbumId === activeAlbum.id && <button type="button" onClick={() => setDeleteConfirmAlbumId(0)}>취소</button>}</div></div>}
+          </div>}
           {album.length ? <div className="album-grid">{album.map((item, index) => (
-            <article className="album-card" key={item.albumId}>
+            <article className="album-card" key={item.membershipId}>
               <button className="album-photo" type="button" onClick={() => openAlbumPhoto(item)}><img src={item.imageUrl} alt={item.title} /><span>자세히 보기 ↗</span></button>
-              <div className="album-card-copy"><div><small>{String(index + 1).padStart(2, "0")}</small><h2>{item.title}</h2><p>{item.ownerName}</p></div><div className="album-controls"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} aria-label="앞으로 이동">←</button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === album.length - 1} aria-label="뒤로 이동">→</button><button className="delete" type="button" onClick={() => deleteItem(item.albumId)}>삭제</button></div></div>
+              <div className="album-card-copy"><div><small>{String(index + 1).padStart(2, "0")}</small><h2>{item.title}</h2><p>{item.ownerName}</p></div><div className="album-controls"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} aria-label="앞으로 이동">←</button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === album.length - 1} aria-label="뒤로 이동">→</button><button className="delete" type="button" onClick={() => deleteItem(item.membershipId)}>삭제</button></div></div>
             </article>
-          ))}</div> : <div className="empty-album"><span>○</span><h2>아직 저장한 장면이 없습니다.</h2><p>발견 화면에서 마음에 드는 사진의 하트를 눌러보세요.</p><button type="button" onClick={() => setView("discover")}>사진 발견하러 가기 →</button></div>}
+          ))}</div> : <div className="empty-album"><span>○</span><h2>{activeAlbum?.name ?? "이 앨범"}은 아직 비어 있습니다.</h2><p>발견 화면에서 저장할 앨범을 선택하고 하트를 눌러보세요.</p><button type="button" onClick={() => setView("discover")}>사진 발견하러 가기 →</button></div>}
         </section>
       )}
 
