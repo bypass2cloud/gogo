@@ -9,7 +9,8 @@ export const albumItems = sqliteTable("album_items", {
   description: text("description").notNull().default(""),
   imageUrl: text("image_url").notNull(),
   originalUrl: text("original_url"),
-  flickrUrl: text("flickr_url").notNull(),
+  // The legacy column name is retained so existing deployed albums remain compatible.
+  sourceUrl: text("flickr_url").notNull(),
   ownerId: text("owner_id").notNull(),
   ownerName: text("owner_name").notNull(),
   dateTaken: text("date_taken"),

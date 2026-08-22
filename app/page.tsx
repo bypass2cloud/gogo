@@ -7,9 +7,9 @@ const initialPhoto: PhotoRecord = {
   id: "loading",
   title: "한 장의 세계를 찾는 중",
   description: "잠시만 기다려주세요. 오늘의 사진을 고르고 있습니다.",
-  imageUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=88",
+  imageUrl: "https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=1800",
   originalUrl: null,
-  flickrUrl: "https://www.flickr.com/explore",
+  sourceUrl: "https://www.pexels.com/",
   ownerId: "",
   ownerName: "FILMPICK",
   dateTaken: null,
@@ -88,7 +88,7 @@ export default function Home() {
     try {
       const params = new URLSearchParams({ tag: next.tag, location: next.location, nonce: String(Date.now()) });
       if (exclude) params.set("exclude", exclude);
-      const response = await fetch(`/api/flickr?${params}`);
+      const response = await fetch(`/api/photos?${params}`);
       const data = await response.json() as { photo?: PhotoRecord; demo?: boolean; error?: string };
       if (!response.ok || !data.photo) throw new Error(data.error || "사진을 찾지 못했습니다.");
       setPhoto(data.photo);
@@ -223,7 +223,7 @@ export default function Home() {
             <div className="condition-row" aria-live="polite">
               {(conditions.tag || conditions.location) ? <><span>현재 조건</span>{conditions.tag && <b>#{conditions.tag}</b>}{conditions.location && <b>⌖ {conditions.location}</b>}</> : <span>조건 없이 오늘의 추천 사진을 만나보세요.</span>}
             </div>
-            {demo && <p className="demo-note">Flickr API 키 연결 전 데모 모드입니다. 키를 추가하면 같은 화면에서 실제 Flickr 사진을 검색합니다.</p>}
+            {demo && <p className="demo-note">Pexels API 키 연결 전 데모 모드입니다. 키를 추가하면 같은 화면에서 실제 Pexels 사진을 검색합니다.</p>}
           </section>
 
           <section className={`photo-stage ${loading ? "is-loading" : ""}`} aria-label="발견한 사진" aria-busy={loading}>
@@ -242,14 +242,14 @@ export default function Home() {
                 <h2>{photo.title}</h2>
                 <p className="description">{photo.description}</p>
                 <div className="source-links">
-                  <a href={photo.flickrUrl} target="_blank" rel="noreferrer">Flickr 원본 페이지 ↗</a>
+                  <a href={photo.sourceUrl} target="_blank" rel="noreferrer">Pexels 사진 페이지 ↗</a>
                   {photo.originalUrl && <a href={photo.originalUrl} target="_blank" rel="noreferrer">원본 파일 열기 ↗</a>}
                 </div>
               </div>
               <dl>
-                <div><dt>사진가</dt><dd><a href={`https://www.flickr.com/people/${photo.ownerId}`} target="_blank" rel="noreferrer">{photo.ownerName}</a></dd></div>
+                <div><dt>사진가</dt><dd><a href={photo.ownerId || photo.sourceUrl} target="_blank" rel="noreferrer">{photo.ownerName}</a></dd></div>
                 <div><dt>촬영일</dt><dd>{formatDate(photo.dateTaken)}</dd></div>
-                <div><dt>위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "위치 정보 없음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
+                <div><dt>검색 위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "지정하지 않음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
                 {(photo.width || photo.height) && <div><dt>크기</dt><dd>{photo.width ?? "?"} × {photo.height ?? "?"} px</dd></div>}
                 <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { setTag(item); setConditions({ tag: item, location: "" }); void fetchPhoto({ tag: item, location: "" }); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
               </dl>
@@ -282,7 +282,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer><div className="brand"><span className="brand-mark">●</span> FILMPICK</div><p>Flickr의 공개 사진과 메타데이터를 이용합니다. 사진 저작권은 각 사진가에게 있습니다.</p><a href="https://www.flickr.com/services/api/" target="_blank" rel="noreferrer">Flickr API ↗</a></footer>
+      <footer><div className="brand"><span className="brand-mark">●</span> FILMPICK</div><p>Pexels의 공개 사진을 이용합니다. 사진 저작권은 각 사진가에게 있습니다.</p><a href="https://www.pexels.com" target="_blank" rel="noreferrer">Photos provided by Pexels ↗</a></footer>
     </main>
   );
 }

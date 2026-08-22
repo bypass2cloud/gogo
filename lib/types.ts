@@ -4,7 +4,7 @@ export type PhotoRecord = {
   description: string;
   imageUrl: string;
   originalUrl: string | null;
-  flickrUrl: string;
+  sourceUrl: string;
   ownerId: string;
   ownerName: string;
   dateTaken: string | null;

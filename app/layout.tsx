@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
   title: "FILMPICK — 한 장의 세계를 발견하다",
-  description: "태그와 장소로 전 세계 Flickr 사진을 발견하고 나만의 앨범에 간직하세요.",
+  description: "태그와 장소로 전 세계 Pexels 사진을 발견하고 나만의 앨범에 간직하세요.",
   openGraph: {
     title: "FILMPICK — 한 장의 세계를 발견하다",
     description: "태그와 장소로 전 세계 사진가의 시선을 발견하고 간직하세요.",

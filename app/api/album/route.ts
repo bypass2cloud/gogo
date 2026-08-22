@@ -16,7 +16,7 @@ function mapRow(row: Record<string, unknown>): AlbumItem {
     description: String(row.description ?? ""),
     imageUrl: String(row.image_url),
     originalUrl: row.original_url ? String(row.original_url) : null,
-    flickrUrl: String(row.flickr_url),
+    sourceUrl: String(row.flickr_url),
     ownerId: String(row.owner_id),
     ownerName: String(row.owner_name),
     dateTaken: row.date_taken ? String(row.date_taken) : null,
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(
         deviceId, photo.id, Number(max?.value ?? -1) + 1, photo.title.slice(0, 300), photo.description.slice(0, 1000),
-        photo.imageUrl, photo.originalUrl, photo.flickrUrl, photo.ownerId, photo.ownerName.slice(0, 200),
+        photo.imageUrl, photo.originalUrl, photo.sourceUrl, photo.ownerId, photo.ownerName.slice(0, 200),
         photo.dateTaken, photo.dateUploaded, photo.latitude, photo.longitude, photo.locationName,
         JSON.stringify(photo.tags.slice(0, 30)), photo.license, photo.width, photo.height, savedAt,
       ).run();
