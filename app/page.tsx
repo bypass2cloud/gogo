@@ -270,7 +270,7 @@ export default function Home() {
               </div>
               <dl>
                 <div><dt>사진가</dt><dd><a href={photo.ownerId || photo.sourceUrl} target="_blank" rel="noreferrer">{photo.ownerName}</a></dd></div>
-                <div><dt>촬영일</dt><dd>{formatDate(photo.dateTaken)}</dd></div>
+                {(photo.dateTaken || photo.dateUploaded) && <div><dt>{photo.dateTaken ? "촬영일" : "업로드일"}</dt><dd>{formatDate(photo.dateTaken ?? photo.dateUploaded)}</dd></div>}
                 <div><dt>검색 위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "지정하지 않음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
                 {(photo.width || photo.height) && <div><dt>크기</dt><dd>{photo.width ?? "?"} × {photo.height ?? "?"} px</dd></div>}
                 <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "" }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
