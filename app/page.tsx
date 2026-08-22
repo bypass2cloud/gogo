@@ -3,6 +3,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { AlbumItem, CommentRecord, PhotoRecord } from "../lib/types";
 
+type SearchConditions = { tag: string; location: string };
+
+const conditionsStorageKey = "filmpick-search-conditions";
+
 const initialPhoto: PhotoRecord = {
   id: "loading",
   title: "한 장의 세계를 찾는 중",
@@ -32,6 +36,18 @@ function getDeviceId() {
   return created;
 }
 
+function getSavedConditions(): SearchConditions {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(conditionsStorageKey) ?? "null") as Partial<SearchConditions> | null;
+    return {
+      tag: typeof saved?.tag === "string" ? saved.tag.trim().slice(0, 120) : "",
+      location: typeof saved?.location === "string" ? saved.location.trim().slice(0, 120) : "",
+    };
+  } catch {
+    return { tag: "", location: "" };
+  }
+}
+
 function formatDate(value: string | null) {
   if (!value) return "기록 없음";
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -44,7 +60,7 @@ export default function Home() {
   const [view, setView] = useState<"discover" | "album">("discover");
   const [tag, setTag] = useState("");
   const [location, setLocation] = useState("");
-  const [conditions, setConditions] = useState({ tag: "", location: "" });
+  const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "" });
   const [photo, setPhoto] = useState<PhotoRecord>(initialPhoto);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
@@ -105,15 +121,24 @@ export default function Home() {
 
   useEffect(() => {
     const id = getDeviceId();
+    const savedConditions = getSavedConditions();
     setDeviceId(id);
+    setTag(savedConditions.tag);
+    setLocation(savedConditions.location);
+    setConditions(savedConditions);
     void loadAlbum(id);
-    void fetchPhoto({ tag: "", location: "" });
+    void fetchPhoto(savedConditions);
   }, [fetchPhoto, loadAlbum]);
+
+  function rememberConditions(next: SearchConditions) {
+    setConditions(next);
+    window.localStorage.setItem(conditionsStorageKey, JSON.stringify(next));
+  }
 
   async function search(event: FormEvent) {
     event.preventDefault();
     const next = { tag: tag.trim(), location: location.trim() };
-    setConditions(next);
+    rememberConditions(next);
     setView("discover");
     await fetchPhoto(next);
   }
@@ -248,7 +273,7 @@ export default function Home() {
                 <div><dt>촬영일</dt><dd>{formatDate(photo.dateTaken)}</dd></div>
                 <div><dt>검색 위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "지정하지 않음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
                 {(photo.width || photo.height) && <div><dt>크기</dt><dd>{photo.width ?? "?"} × {photo.height ?? "?"} px</dd></div>}
-                <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { setTag(item); setConditions({ tag: item, location: "" }); void fetchPhoto({ tag: item, location: "" }); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
+                <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "" }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
               </dl>
             </aside>
           </section>
