@@ -405,7 +405,7 @@ export default function Home() {
 
           <section className={`photo-stage ${loading ? "is-loading" : ""}`} aria-label="발견한 사진" aria-busy={loading}>
             <div className="photo-frame">
-              <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
+              <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} title="더블클릭하여 다른 사진 보기" onDoubleClick={() => { if (!loading) void fetchPhoto(conditions, photo.id); }} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
               <div className="photo-actions">
                 <div className="save-cluster">
