@@ -57,6 +57,15 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(date);
 }
 
+function cleanPhotoTitle(value: string | null | undefined) {
+  const cleaned = (value ?? "")
+    .replace(/#[\p{L}\p{N}_-]+/gu, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s|,;·•]+|[\s|,;·•]+$/g, "")
+    .trim();
+  return cleaned || "제목 없는 사진";
+}
+
 export default function Home() {
   const [view, setView] = useState<"discover" | "album">("discover");
   const [tag, setTag] = useState("");
@@ -351,7 +360,7 @@ export default function Home() {
 
           <section className={`photo-stage ${loading ? "is-loading" : ""}`} aria-label="발견한 사진" aria-busy={loading}>
             <div className="photo-frame">
-              <img src={photo.imageUrl} alt={photo.title} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
+              <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
               <div className="photo-actions">
                 <div className="save-cluster">
@@ -366,7 +375,7 @@ export default function Home() {
             <aside className="photo-caption">
               <div>
                 <p className="photo-kicker">TODAY’S DISCOVERY</p>
-                <h2>{photo.title}</h2>
+                <h2>{cleanPhotoTitle(photo.title)}</h2>
                 <p className="description">{photo.description}</p>
                 <div className="source-links">
                   <a href={photo.sourceUrl} target="_blank" rel="noreferrer">{photo.id.startsWith("openverse-") ? "Openverse 사진 페이지" : "Pexels 사진 페이지"} ↗</a>
@@ -416,8 +425,8 @@ export default function Home() {
           </div>}
           {album.length ? <div className="album-grid">{album.map((item, index) => (
             <article className="album-card" key={item.membershipId}>
-              <button className="album-photo" type="button" onClick={() => openAlbumPhoto(item)}><img src={item.imageUrl} alt={item.title} /><span>자세히 보기 ↗</span></button>
-              <div className="album-card-copy"><div><small>{String(index + 1).padStart(2, "0")}</small><h2>{item.title}</h2><p>{item.ownerName}</p></div><div className="album-controls"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} aria-label="앞으로 이동">←</button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === album.length - 1} aria-label="뒤로 이동">→</button><button className="delete" type="button" onClick={() => deleteItem(item.membershipId)}>삭제</button></div></div>
+              <button className="album-photo" type="button" onClick={() => openAlbumPhoto(item)}><img src={item.imageUrl} alt={cleanPhotoTitle(item.title)} /><span>자세히 보기 ↗</span></button>
+              <div className="album-card-copy"><div><small>{String(index + 1).padStart(2, "0")}</small><h2>{cleanPhotoTitle(item.title)}</h2><p>{item.ownerName}</p></div><div className="album-controls"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} aria-label="앞으로 이동">←</button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === album.length - 1} aria-label="뒤로 이동">→</button><button className="delete" type="button" onClick={() => deleteItem(item.membershipId)}>삭제</button></div></div>
             </article>
           ))}</div> : <div className="empty-album"><span>○</span><h2>{activeAlbum?.name ?? "이 앨범"}은 아직 비어 있습니다.</h2><p>발견 화면에서 저장할 앨범을 선택하고 하트를 눌러보세요.</p><button type="button" onClick={() => setView("discover")}>사진 발견하러 가기 →</button></div>}
         </section>
