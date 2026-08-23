@@ -69,6 +69,11 @@ export async function ensureSchema() {
       created_at TEXT NOT NULL
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_comments_photo_created ON comments(photo_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS openverse_tokens (
+      id INTEGER PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`),
   ]);
   initialized = true;
 }

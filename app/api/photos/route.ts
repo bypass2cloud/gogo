@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { ensureSchema, getD1 } from "../../../db";
 import type { PhotoRecord } from "../../../lib/types";
 
 const endpoint = "https://api.pexels.com/v1";
@@ -116,6 +117,12 @@ async function pexels(path: string, apiKey: string, params: Record<string, strin
 async function getOpenverseToken(clientId: string, clientSecret: string) {
   if (openverseTokenPromise && Date.now() < openverseTokenExpiresAt - 60_000) return openverseTokenPromise;
   openverseTokenPromise = (async () => {
+    await ensureSchema();
+    const cached = await getD1().prepare("SELECT access_token, expires_at FROM openverse_tokens WHERE id = 1").first<{ access_token: string; expires_at: number }>();
+    if (cached && Number(cached.expires_at) > Date.now() + 60_000) {
+      openverseTokenExpiresAt = Number(cached.expires_at);
+      return cached.access_token;
+    }
     const tokenResponse = await fetch(openverseTokenEndpoint, {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
@@ -125,6 +132,9 @@ async function getOpenverseToken(clientId: string, clientSecret: string) {
     const tokenData = await tokenResponse.json() as { access_token?: string; expires_in?: number };
     if (!tokenData.access_token) throw new Error("Openverse 인증 토큰을 받지 못했습니다.");
     openverseTokenExpiresAt = Date.now() + (tokenData.expires_in ?? 3600) * 1000;
+    await getD1().prepare(`INSERT INTO openverse_tokens (id, access_token, expires_at) VALUES (1, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET access_token = excluded.access_token, expires_at = excluded.expires_at`)
+      .bind(tokenData.access_token, openverseTokenExpiresAt).run();
     return tokenData.access_token;
   })();
   try {

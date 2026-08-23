@@ -66,3 +66,9 @@ export const comments = sqliteTable("comments", {
 }, (table) => [
   index("idx_comments_photo_created").on(table.photoId, table.createdAt),
 ]);
+
+export const openverseTokens = sqliteTable("openverse_tokens", {
+  id: integer("id").primaryKey(),
+  accessToken: text("access_token").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
