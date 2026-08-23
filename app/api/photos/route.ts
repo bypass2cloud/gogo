@@ -193,7 +193,8 @@ function toOpenverseRecord(raw: OpenversePhoto, location: string, tag: string): 
     id: `openverse-${raw.id}`,
     title,
     description: raw.description?.trim() || title,
-    imageUrl: raw.url || raw.thumbnail || "https://openverse.org/",
+    // Use the provider thumbnail for the in-app view; keep the full file as the original link.
+    imageUrl: raw.thumbnail || raw.url || "https://openverse.org/",
     originalUrl: raw.url || raw.thumbnail || null,
     sourceUrl: raw.foreign_landing_url || "https://openverse.org/",
     ownerId: raw.creator_url || raw.foreign_landing_url || "https://openverse.org/",
@@ -239,7 +240,7 @@ export async function GET(request: Request) {
     const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && (!searchTerms || matchesOpenverse(item, tag, location)));
     const candidates = source === "openverse" ? openverseList.map((item) => toOpenverseRecord(item, location, tag)) : [
       ...pexelsList.map((raw) => ({
-        id: `pexels-${raw.id}`, title: raw.alt?.trim() || "제목 없는 사진", description: raw.alt?.trim() || "Pexels 사진가가 공개한 사진입니다.", imageUrl: raw.src.large2x ?? raw.src.landscape ?? raw.src.large ?? raw.src.original, originalUrl: raw.src.original, sourceUrl: raw.url, ownerId: raw.photographer_url || raw.url, ownerName: raw.photographer || "Pexels Photographer", dateTaken: null, dateUploaded: null, latitude: null, longitude: null, locationName: location || null, tags: tag.split(/[\s,]+/).filter(Boolean).slice(0, 16), license: "Pexels License", width: raw.width || null, height: raw.height || null,
+        id: `pexels-${raw.id}`, title: raw.alt?.trim() || "제목 없는 사진", description: raw.alt?.trim() || "Pexels 사진가가 공개한 사진입니다.", imageUrl: raw.src.large ?? raw.src.landscape ?? raw.src.large2x ?? raw.src.original, originalUrl: raw.src.original, sourceUrl: raw.url, ownerId: raw.photographer_url || raw.url, ownerName: raw.photographer || "Pexels Photographer", dateTaken: null, dateUploaded: null, latitude: null, longitude: null, locationName: location || null, tags: tag.split(/[\s,]+/).filter(Boolean).slice(0, 16), license: "Pexels License", width: raw.width || null, height: raw.height || null,
       } satisfies PhotoRecord)),
       ...openverseList.map((item) => toOpenverseRecord(item, location, tag)),
     ];
