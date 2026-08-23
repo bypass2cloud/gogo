@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumItem, AlbumSummary, CommentRecord, PhotoRecord } from "../lib/types";
 
 type SearchConditions = { tag: string; location: string; source: "pexels" | "openverse" | "all" };
@@ -80,6 +80,7 @@ export default function Home() {
   const [commentName, setCommentName] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
+  const recentPhotoIds = useRef<string[]>([]);
 
   const isSaved = useMemo(() => album.some((item) => item.id === photo.id), [album, photo.id]);
   const activeAlbum = useMemo(() => albums.find((item) => item.id === activeAlbumId) ?? null, [albums, activeAlbumId]);
@@ -131,11 +132,13 @@ export default function Home() {
     setError("");
     try {
       const params = new URLSearchParams({ tag: next.tag, location: next.location, source: next.source, nonce: String(Date.now()) });
-      if (exclude) params.set("exclude", exclude);
+      const excluded = [...recentPhotoIds.current, exclude].filter(Boolean);
+      if (excluded.length) params.set("exclude", [...new Set(excluded)].join(","));
       const response = await fetch(`/api/photos?${params}`);
       const data = await response.json() as { photo?: PhotoRecord; demo?: boolean; error?: string };
       if (!response.ok || !data.photo) throw new Error(data.error || "사진을 찾지 못했습니다.");
       setPhoto(data.photo);
+      recentPhotoIds.current = [...recentPhotoIds.current.filter((id) => id !== data.photo!.id), data.photo!.id].slice(-24);
       setDemo(Boolean(data.demo));
       setComments([]);
       await loadComments(data.photo.id);
@@ -167,6 +170,7 @@ export default function Home() {
   async function search(event: FormEvent) {
     event.preventDefault();
     const next = { tag: tag.trim(), location: location.trim(), source };
+    recentPhotoIds.current = [];
     rememberConditions(next);
     setView("discover");
     await fetchPhoto(next);
