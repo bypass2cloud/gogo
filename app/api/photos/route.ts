@@ -4,6 +4,8 @@ import type { PhotoRecord } from "../../../lib/types";
 const endpoint = "https://api.pexels.com/v1";
 const openverseEndpoint = "https://api.openverse.org/v1/images/";
 const openverseTokenEndpoint = "https://api.openverse.org/v1/auth_tokens/token/";
+let openverseTokenPromise: Promise<string> | null = null;
+let openverseTokenExpiresAt = 0;
 
 const demos: PhotoRecord[] = [
   {
@@ -111,17 +113,33 @@ async function pexels(path: string, apiKey: string, params: Record<string, strin
   return response.json() as Promise<{ photos?: PexelsPhoto[] }>;
 }
 
+async function getOpenverseToken(clientId: string, clientSecret: string) {
+  if (openverseTokenPromise && Date.now() < openverseTokenExpiresAt - 60_000) return openverseTokenPromise;
+  openverseTokenPromise = (async () => {
+    const tokenResponse = await fetch(openverseTokenEndpoint, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+    });
+    if (!tokenResponse.ok) throw new Error(`Openverse 인증에 실패했습니다. (${tokenResponse.status})`);
+    const tokenData = await tokenResponse.json() as { access_token?: string; expires_in?: number };
+    if (!tokenData.access_token) throw new Error("Openverse 인증 토큰을 받지 못했습니다.");
+    openverseTokenExpiresAt = Date.now() + (tokenData.expires_in ?? 3600) * 1000;
+    return tokenData.access_token;
+  })();
+  try {
+    return await openverseTokenPromise;
+  } catch (error) {
+    openverseTokenPromise = null;
+    openverseTokenExpiresAt = 0;
+    throw error;
+  }
+}
+
 async function openverse(params: Record<string, string>, clientId: string, clientSecret: string) {
-  const tokenResponse = await fetch(openverseTokenEndpoint, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
-  });
-  if (!tokenResponse.ok) throw new Error(`Openverse 인증에 실패했습니다. (${tokenResponse.status})`);
-  const tokenData = await tokenResponse.json() as { access_token?: string };
-  if (!tokenData.access_token) throw new Error("Openverse 인증 토큰을 받지 못했습니다.");
+  const token = await getOpenverseToken(clientId, clientSecret);
   const query = new URLSearchParams(params);
-  const response = await fetch(`${openverseEndpoint}?${query}`, { headers: { Accept: "application/json", Authorization: `Bearer ${tokenData.access_token}`, "User-Agent": "FILMPICK/1.0 (photo discovery)" } });
+  const response = await fetch(`${openverseEndpoint}?${query}`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}`, "User-Agent": "FILMPICK/1.0 (photo discovery)" } });
   if (!response.ok) throw new Error(`Openverse에서 사진을 불러오지 못했습니다. (${response.status})`);
   return response.json() as Promise<{ results?: OpenversePhoto[] }>;
 }
