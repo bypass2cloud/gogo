@@ -45,10 +45,10 @@ function getSavedConditions(): SearchConditions {
     return {
       tag: typeof saved?.tag === "string" ? saved.tag.trim().slice(0, 120) : "",
       location: typeof saved?.location === "string" ? saved.location.trim().slice(0, 120) : "",
-      source: saved?.source === "openverse" || saved?.source === "all" ? saved.source : "pexels",
+      source: saved?.source === "pexels" || saved?.source === "openverse" ? saved.source : "all",
     };
   } catch {
-    return { tag: "", location: "", source: "pexels" };
+    return { tag: "", location: "", source: "all" };
   }
 }
 
@@ -107,8 +107,8 @@ export default function Home() {
   const [view, setView] = useState<"discover" | "album">("discover");
   const [tag, setTag] = useState("");
   const [location, setLocation] = useState("");
-  const [source, setSource] = useState<SearchConditions["source"]>("pexels");
-  const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "", source: "pexels" });
+  const [source, setSource] = useState<SearchConditions["source"]>("all");
+  const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "", source: "all" });
   const [recentSearches, setRecentSearches] = useState<SearchConditions[]>([]);
   const [excludedTerms, setExcludedTerms] = useState<string[]>(defaultExcludedTerms);
   const [excludedInput, setExcludedInput] = useState("");
@@ -216,7 +216,7 @@ export default function Home() {
     const urlConditions: SearchConditions = {
       tag: (urlParams.get("tag") ?? urlParams.get("q") ?? "").trim().slice(0, 120),
       location: (urlParams.get("location") ?? "").trim().slice(0, 120),
-      source: urlSource === "openverse" || urlSource === "all" ? urlSource : "pexels",
+      source: urlSource === "pexels" || urlSource === "openverse" ? urlSource : "all",
     };
     const initialConditions = hasUrlConditions ? urlConditions : savedConditions;
     setDeviceId(id);
@@ -275,13 +275,14 @@ export default function Home() {
   }
 
   async function searchRecent(next: SearchConditions) {
-    setTag(next.tag);
-    setLocation(next.location);
-    setSource(next.source);
+    const allSourceNext = { ...next, source: "all" as const };
+    setTag(allSourceNext.tag);
+    setLocation(allSourceNext.location);
+    setSource(allSourceNext.source);
     recentPhotoIds.current = [];
-    rememberConditions(next);
+    rememberConditions(allSourceNext);
     setView("discover");
-    await fetchPhoto(next);
+    await fetchPhoto(allSourceNext);
   }
 
   async function savePhoto() {
