@@ -141,7 +141,14 @@ async function openverse(params: Record<string, string>, clientId: string, clien
   const query = new URLSearchParams(params);
   const response = await fetch(`${openverseEndpoint}?${query}`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}`, "User-Agent": "FILMPICK/1.0 (photo discovery)" } });
   if (!response.ok) throw new Error(`Openverse에서 사진을 불러오지 못했습니다. (${response.status})`);
-  return response.json() as Promise<{ results?: OpenversePhoto[] }>;
+  return response.json() as Promise<{ results?: OpenversePhoto[]; page_count?: number; page?: number }>;
+}
+
+async function openverseSearch(params: Record<string, string>, clientId: string, clientSecret: string, nonce: number) {
+  const firstPage = await openverse({ ...params, page: "1" }, clientId, clientSecret);
+  const pageCount = Math.max(1, Number(firstPage.page_count ?? 1));
+  const page = (Math.abs(nonce) % pageCount) + 1;
+  return page === 1 ? firstPage : openverse({ ...params, page: String(page) }, clientId, clientSecret);
 }
 
 function normalizeSearchText(value: string) {
@@ -208,7 +215,7 @@ export async function GET(request: Request) {
     const searchTerms = [tag, location].filter(Boolean).join(" ");
     const [pexelsData, openverseData] = await Promise.all([
       (source !== "openverse" && apiKey) ? (searchTerms ? pexels("/search", apiKey, { query: searchTerms, locale: "ko-KR", per_page: "80", page: "1" }) : pexels("/curated", apiKey, { per_page: "80", page: "1" })) : Promise.resolve({ photos: [] }),
-      source !== "pexels" ? openverse({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "") : Promise.resolve({ results: [] }),
+      source !== "pexels" ? openverseSearch({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "", nonce) : Promise.resolve({ results: [] }),
     ]);
     const pexelsList = (pexelsData.photos ?? []).filter((item) => !excludedIds.has(`pexels-${item.id}`) && (!searchTerms || matchesEveryCondition(item, tag, location)));
     const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && (!searchTerms || matchesOpenverse(item, tag, location)));

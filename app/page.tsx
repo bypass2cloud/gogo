@@ -138,7 +138,7 @@ export default function Home() {
       const data = await response.json() as { photo?: PhotoRecord; demo?: boolean; error?: string };
       if (!response.ok || !data.photo) throw new Error(data.error || "사진을 찾지 못했습니다.");
       setPhoto(data.photo);
-      recentPhotoIds.current = [...recentPhotoIds.current.filter((id) => id !== data.photo!.id), data.photo!.id].slice(-24);
+      recentPhotoIds.current = [...recentPhotoIds.current.filter((id) => id !== data.photo!.id), data.photo!.id].slice(-100);
       setDemo(Boolean(data.demo));
       setComments([]);
       await loadComments(data.photo.id);
