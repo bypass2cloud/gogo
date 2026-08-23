@@ -18,6 +18,8 @@ export type PhotoRecord = {
   height: number | null;
 };
 
+export type PhotoSource = "pexels" | "openverse";
+
 export type AlbumItem = PhotoRecord & {
   membershipId: number;
   albumId: number;

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { AlbumItem, AlbumSummary, CommentRecord, PhotoRecord } from "../lib/types";
 
-type SearchConditions = { tag: string; location: string };
+type SearchConditions = { tag: string; location: string; source: "pexels" | "openverse" | "all" };
 
 const conditionsStorageKey = "filmpick-search-conditions";
 
@@ -42,9 +42,10 @@ function getSavedConditions(): SearchConditions {
     return {
       tag: typeof saved?.tag === "string" ? saved.tag.trim().slice(0, 120) : "",
       location: typeof saved?.location === "string" ? saved.location.trim().slice(0, 120) : "",
+      source: saved?.source === "openverse" || saved?.source === "all" ? saved.source : "pexels",
     };
   } catch {
-    return { tag: "", location: "" };
+    return { tag: "", location: "", source: "pexels" };
   }
 }
 
@@ -60,7 +61,8 @@ export default function Home() {
   const [view, setView] = useState<"discover" | "album">("discover");
   const [tag, setTag] = useState("");
   const [location, setLocation] = useState("");
-  const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "" });
+  const [source, setSource] = useState<SearchConditions["source"]>("pexels");
+  const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "", source: "pexels" });
   const [photo, setPhoto] = useState<PhotoRecord>(initialPhoto);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
@@ -128,7 +130,7 @@ export default function Home() {
     setImageLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ tag: next.tag, location: next.location, nonce: String(Date.now()) });
+      const params = new URLSearchParams({ tag: next.tag, location: next.location, source: next.source, nonce: String(Date.now()) });
       if (exclude) params.set("exclude", exclude);
       const response = await fetch(`/api/photos?${params}`);
       const data = await response.json() as { photo?: PhotoRecord; demo?: boolean; error?: string };
@@ -151,6 +153,7 @@ export default function Home() {
     setDeviceId(id);
     setTag(savedConditions.tag);
     setLocation(savedConditions.location);
+    setSource(savedConditions.source);
     setConditions(savedConditions);
     void loadAlbums(id);
     void fetchPhoto(savedConditions);
@@ -163,7 +166,7 @@ export default function Home() {
 
   async function search(event: FormEvent) {
     event.preventDefault();
-    const next = { tag: tag.trim(), location: location.trim() };
+    const next = { tag: tag.trim(), location: location.trim(), source };
     rememberConditions(next);
     setView("discover");
     await fetchPhoto(next);
@@ -304,7 +307,9 @@ export default function Home() {
 
   function openAlbumPhoto(item: AlbumItem) {
     setPhoto(item);
-    setConditions({ tag: "", location: "" });
+    const itemSource = item.id.startsWith("openverse-") ? "openverse" : "pexels";
+    setSource(itemSource);
+    setConditions({ tag: "", location: "", source: itemSource });
     setView("discover");
     setImageLoading(true);
     void loadComments(item.id);
@@ -331,6 +336,7 @@ export default function Home() {
             <form className="search-card" onSubmit={search}>
               <label><span>태그</span><input name="tag" value={tag} onChange={(event) => setTag(event.target.value)} placeholder="예: 고양이, 건축, 여름" maxLength={120} /></label>
               <label><span>위치</span><input name="location" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="예: 서울, 파리, 제주" maxLength={120} /></label>
+              <label className="source-field"><span>출처</span><select name="source" value={source} onChange={(event) => setSource(event.target.value as SearchConditions["source"])}><option value="pexels">Pexels</option><option value="openverse">Openverse</option><option value="all">모두</option></select></label>
               <button type="submit" disabled={loading}>사진 찾기 <span aria-hidden="true">→</span></button>
             </form>
             <div className="condition-row" aria-live="polite">
@@ -360,16 +366,17 @@ export default function Home() {
                 <h2>{photo.title}</h2>
                 <p className="description">{photo.description}</p>
                 <div className="source-links">
-                  <a href={photo.sourceUrl} target="_blank" rel="noreferrer">Pexels 사진 페이지 ↗</a>
+                  <a href={photo.sourceUrl} target="_blank" rel="noreferrer">{photo.id.startsWith("openverse-") ? "Openverse 사진 페이지" : "Pexels 사진 페이지"} ↗</a>
                   {photo.originalUrl && <a href={photo.originalUrl} target="_blank" rel="noreferrer">원본 파일 열기 ↗</a>}
                 </div>
               </div>
               <dl>
                 <div><dt>사진가</dt><dd><a href={photo.ownerId || photo.sourceUrl} target="_blank" rel="noreferrer">{photo.ownerName}</a></dd></div>
                 {(photo.dateTaken || photo.dateUploaded) && <div><dt>{photo.dateTaken ? "촬영일" : "업로드일"}</dt><dd>{formatDate(photo.dateTaken ?? photo.dateUploaded)}</dd></div>}
+                <div><dt>출처</dt><dd>{photo.id.startsWith("openverse-") ? "Openverse" : "Pexels"}</dd></div>
                 <div><dt>검색 위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "지정하지 않음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
                 {(photo.width || photo.height) && <div><dt>크기</dt><dd>{photo.width ?? "?"} × {photo.height ?? "?"} px</dd></div>}
-                <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "" }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
+                <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "", source }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
               </dl>
             </aside>
           </section>
@@ -413,7 +420,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer><div className="brand"><span className="brand-mark">●</span> FILMPICK</div><p>Pexels의 공개 사진을 이용합니다. 사진 저작권은 각 사진가에게 있습니다.</p><a href="https://www.pexels.com" target="_blank" rel="noreferrer">Photos provided by Pexels ↗</a></footer>
+      <footer><div className="brand"><span className="brand-mark">●</span> FILMPICK</div><p>Pexels와 Openverse의 공개 사진을 이용합니다. 사진 저작권과 라이선스는 각 사진가 및 원출처에 있습니다.</p><a href="https://openverse.org" target="_blank" rel="noreferrer">Photos from Pexels &amp; Openverse ↗</a></footer>
     </main>
   );
 }
