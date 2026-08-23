@@ -161,7 +161,7 @@ export default function Home() {
     }
   }, []);
 
-  const fetchPhoto = useCallback(async (next: { tag: string; location: string }, exclude = "") => {
+  const fetchPhoto = useCallback(async (next: SearchConditions, exclude = "") => {
     setLoading(true);
     setImageLoading(true);
     setError("");
@@ -189,13 +189,23 @@ export default function Home() {
     const id = getDeviceId();
     const savedConditions = getSavedConditions();
     setRecentSearches(getSavedRecentSearches());
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasUrlConditions = ["tag", "q", "location", "source"].some((key) => urlParams.has(key));
+    const urlSource = urlParams.get("source");
+    const urlConditions: SearchConditions = {
+      tag: (urlParams.get("tag") ?? urlParams.get("q") ?? "").trim().slice(0, 120),
+      location: (urlParams.get("location") ?? "").trim().slice(0, 120),
+      source: urlSource === "openverse" || urlSource === "all" ? urlSource : "pexels",
+    };
+    const initialConditions = hasUrlConditions ? urlConditions : savedConditions;
     setDeviceId(id);
-    setTag(savedConditions.tag);
-    setLocation(savedConditions.location);
-    setSource(savedConditions.source);
-    setConditions(savedConditions);
+    setTag(initialConditions.tag);
+    setLocation(initialConditions.location);
+    setSource(initialConditions.source);
+    setConditions(initialConditions);
+    if (hasUrlConditions) rememberConditions(initialConditions);
     void loadAlbums(id);
-    void fetchPhoto(savedConditions);
+    void fetchPhoto(initialConditions);
   }, [fetchPhoto, loadAlbums]);
 
   function rememberConditions(next: SearchConditions) {
