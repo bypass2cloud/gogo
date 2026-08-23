@@ -196,7 +196,7 @@ function matchesOpenverse(photo: OpenversePhoto, tag: string, location: string) 
   return requiredTerms.every((term) => haystack.includes(term));
 }
 
-function toOpenverseRecord(raw: OpenversePhoto, location: string, tag: string): PhotoRecord {
+function toOpenverseRecord(raw: OpenversePhoto, location: string): PhotoRecord {
   const title = cleanPhotoTitle(raw.title);
   return {
     id: `openverse-${raw.id}`,
@@ -212,7 +212,7 @@ function toOpenverseRecord(raw: OpenversePhoto, location: string, tag: string): 
     latitude: null,
     longitude: null,
     locationName: location || null,
-    tags: (raw.tags ?? []).map((item) => typeof item === "string" ? item : item.name ?? "").filter(Boolean).slice(0, 16).concat(tag.split(/[\s,]+/).filter(Boolean).slice(0, 16)).slice(0, 16),
+    tags: (raw.tags ?? []).map((item) => typeof item === "string" ? item : item.name ?? "").filter(Boolean).slice(0, 16),
     license: [raw.license, raw.license_version].filter(Boolean).join(" ") || null,
     width: raw.width || null,
     height: raw.height || null,
@@ -246,9 +246,9 @@ export async function GET(request: Request) {
     ]);
     const pexelsList = (pexelsData.photos ?? []).filter((item) => !excludedIds.has(`pexels-${item.id}`) && (!searchTerms || matchesEveryCondition(item, tag, location)));
     const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && (!searchTerms || matchesOpenverse(item, tag, location)));
-    const candidates = source === "openverse" ? openverseList.map((item) => toOpenverseRecord(item, location, tag)) : [
+    const candidates = source === "openverse" ? openverseList.map((item) => toOpenverseRecord(item, location)) : [
       ...pexelsList.map((raw) => ({
-        id: `pexels-${raw.id}`, title: cleanPhotoTitle(raw.alt), description: raw.alt?.trim() || "Pexels 사진가가 공개한 사진입니다.", imageUrl: raw.src.large2x ?? raw.src.landscape ?? raw.src.large ?? raw.src.original, originalUrl: raw.src.original, sourceUrl: raw.url, ownerId: raw.photographer_url || raw.url, ownerName: raw.photographer || "Pexels Photographer", dateTaken: null, dateUploaded: null, latitude: null, longitude: null, locationName: location || null, tags: tag.split(/[\s,]+/).filter(Boolean).slice(0, 16), license: "Pexels License", width: raw.width || null, height: raw.height || null,
+        id: `pexels-${raw.id}`, title: cleanPhotoTitle(raw.alt), description: raw.alt?.trim() || "Pexels 사진가가 공개한 사진입니다.", imageUrl: raw.src.large2x ?? raw.src.landscape ?? raw.src.large ?? raw.src.original, originalUrl: raw.src.original, sourceUrl: raw.url, ownerId: raw.photographer_url || raw.url, ownerName: raw.photographer || "Pexels Photographer", dateTaken: null, dateUploaded: null, latitude: null, longitude: null, locationName: location || null, tags: [], license: "Pexels License", width: raw.width || null, height: raw.height || null,
       } satisfies PhotoRecord)),
       ...openverseList.map((item) => toOpenverseRecord(item, location, tag)),
     ];

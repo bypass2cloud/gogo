@@ -68,6 +68,10 @@ function searchLabel(search: SearchConditions) {
   return [search.tag, search.location].filter(Boolean).join(" · ");
 }
 
+function normalizeSearchTerm(value: string) {
+  return value.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 function formatDate(value: string | null) {
   if (!value) return "기록 없음";
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -114,6 +118,8 @@ export default function Home() {
   const isSaved = useMemo(() => album.some((item) => item.id === photo.id), [album, photo.id]);
   const activeAlbum = useMemo(() => albums.find((item) => item.id === activeAlbumId) ?? null, [albums, activeAlbumId]);
   const totalSaved = useMemo(() => albums.reduce((sum, item) => sum + item.itemCount, 0), [albums]);
+  const recentSearchTerms = useMemo(() => new Set(recentSearches.flatMap((item) => [item.tag, item.location].flatMap((value) => [value, ...value.split(/[\s,]+/)]).map(normalizeSearchTerm).filter(Boolean))), [recentSearches]);
+  const visibleTags = useMemo(() => photo.tags.filter((item) => !recentSearchTerms.has(normalizeSearchTerm(item))).slice(0, 8), [photo.tags, recentSearchTerms]);
 
   const loadAlbumItems = useCallback(async (id: string, albumId: number) => {
     try {
@@ -427,7 +433,7 @@ export default function Home() {
                 <div><dt>출처</dt><dd>{photo.id.startsWith("openverse-") ? "Openverse" : "Pexels"}</dd></div>
                 <div><dt>검색 위치</dt><dd>{photo.locationName ?? (photo.latitude != null ? `${photo.latitude.toFixed(4)}, ${photo.longitude?.toFixed(4)}` : "지정하지 않음")}{photo.latitude != null && <a className="map-link" href={`https://www.openstreetmap.org/?mlat=${photo.latitude}&mlon=${photo.longitude}#map=12/${photo.latitude}/${photo.longitude}`} target="_blank" rel="noreferrer">지도 ↗</a>}</dd></div>
                 {(photo.width || photo.height) && <div><dt>크기</dt><dd>{photo.width ?? "?"} × {photo.height ?? "?"} px</dd></div>}
-                <div className="tags-row"><dt>태그</dt><dd>{photo.tags.length ? photo.tags.slice(0, 8).map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "", source }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
+                <div className="tags-row"><dt>태그</dt><dd>{visibleTags.length ? visibleTags.map((item) => <button className="tag" type="button" key={item} onClick={() => { const next = { tag: item, location: "", source }; setTag(item); setLocation(""); rememberConditions(next); void fetchPhoto(next); }}>{item}</button>) : <span>태그 없음</span>}</dd></div>
               </dl>
             </aside>
           </section>
