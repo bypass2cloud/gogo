@@ -7,6 +7,8 @@ type SearchConditions = { tag: string; location: string; source: "pexels" | "ope
 
 const conditionsStorageKey = "filmpick-search-conditions";
 const recentSearchesStorageKey = "filmpick-recent-searches";
+const excludedTermsStorageKey = "filmpick-excluded-terms";
+const defaultExcludedTerms = ["교회", "성당", "예배", "미사", "church", "cathedral", "worship", "prayer", "시위", "데모", "protest", "demonstration"];
 
 const initialPhoto: PhotoRecord = {
   id: "loading",
@@ -64,6 +66,18 @@ function getSavedRecentSearches(): SearchConditions[] {
   }
 }
 
+function getSavedExcludedTerms() {
+  try {
+    const raw = window.localStorage.getItem(excludedTermsStorageKey);
+    if (raw === null) return defaultExcludedTerms;
+    const saved = JSON.parse(raw) as unknown;
+    if (!Array.isArray(saved)) return defaultExcludedTerms;
+    return [...new Set(saved.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+  } catch {
+    return defaultExcludedTerms;
+  }
+}
+
 function searchLabel(search: SearchConditions) {
   return [search.tag, search.location].filter(Boolean).join(" · ");
 }
@@ -96,6 +110,8 @@ export default function Home() {
   const [source, setSource] = useState<SearchConditions["source"]>("pexels");
   const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "", source: "pexels" });
   const [recentSearches, setRecentSearches] = useState<SearchConditions[]>([]);
+  const [excludedTerms, setExcludedTerms] = useState<string[]>(defaultExcludedTerms);
+  const [excludedInput, setExcludedInput] = useState("");
   const [photo, setPhoto] = useState<PhotoRecord>(initialPhoto);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
@@ -114,6 +130,7 @@ export default function Home() {
   const [commentBody, setCommentBody] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
   const recentPhotoIds = useRef<string[]>([]);
+  const excludedTermsRef = useRef<string[]>(defaultExcludedTerms);
 
   const isSaved = useMemo(() => album.some((item) => item.id === photo.id), [album, photo.id]);
   const activeAlbum = useMemo(() => albums.find((item) => item.id === activeAlbumId) ?? null, [albums, activeAlbumId]);
@@ -161,12 +178,13 @@ export default function Home() {
     }
   }, []);
 
-  const fetchPhoto = useCallback(async (next: SearchConditions, exclude = "") => {
+  const fetchPhoto = useCallback(async (next: SearchConditions, exclude = "", blockedTerms = excludedTermsRef.current) => {
     setLoading(true);
     setImageLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ tag: next.tag, location: next.location, source: next.source, nonce: String(Date.now()) });
+      if (blockedTerms.length) params.set("excludeTerms", blockedTerms.join(","));
       const excluded = [...recentPhotoIds.current, exclude].filter(Boolean);
       if (excluded.length) params.set("exclude", [...new Set(excluded)].join(","));
       const response = await fetch(`/api/photos?${params}`);
@@ -189,6 +207,9 @@ export default function Home() {
     const id = getDeviceId();
     const savedConditions = getSavedConditions();
     setRecentSearches(getSavedRecentSearches());
+    const savedExcludedTerms = getSavedExcludedTerms();
+    excludedTermsRef.current = savedExcludedTerms;
+    setExcludedTerms(savedExcludedTerms);
     const urlParams = new URLSearchParams(window.location.search);
     const hasUrlConditions = ["tag", "q", "location", "source"].some((key) => urlParams.has(key));
     const urlSource = urlParams.get("source");
@@ -205,8 +226,32 @@ export default function Home() {
     setConditions(initialConditions);
     if (hasUrlConditions) rememberConditions(initialConditions);
     void loadAlbums(id);
-    void fetchPhoto(initialConditions);
+    void fetchPhoto(initialConditions, "", savedExcludedTerms);
   }, [fetchPhoto, loadAlbums]);
+
+  function persistExcludedTerms(next: string[]) {
+    const normalized = [...new Set(next.map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+    excludedTermsRef.current = normalized;
+    setExcludedTerms(normalized);
+    window.localStorage.setItem(excludedTermsStorageKey, JSON.stringify(normalized));
+    return normalized;
+  }
+
+  async function addExcludedTerms(event: FormEvent) {
+    event.preventDefault();
+    const additions = excludedInput.split(",").map((item) => item.trim()).filter(Boolean);
+    if (!additions.length) return;
+    const next = persistExcludedTerms([...excludedTerms, ...additions]);
+    setExcludedInput("");
+    recentPhotoIds.current = [];
+    await fetchPhoto(conditions, "", next);
+  }
+
+  async function removeExcludedTerm(term: string) {
+    const next = persistExcludedTerms(excludedTerms.filter((item) => item !== term));
+    recentPhotoIds.current = [];
+    await fetchPhoto(conditions, "", next);
+  }
 
   function rememberConditions(next: SearchConditions) {
     setConditions(next);
@@ -406,6 +451,16 @@ export default function Home() {
               <label className="source-field"><span>출처</span><select name="source" value={source} onChange={(event) => setSource(event.target.value as SearchConditions["source"])}><option value="pexels">Pexels</option><option value="openverse">Openverse</option><option value="all">모두</option></select></label>
               <button type="submit" disabled={loading}>사진 찾기 <span aria-hidden="true">→</span></button>
             </form>
+            <div className="exclusion-settings">
+              <div className="exclusion-heading"><span>제외어</span><small>제목·설명·태그에 포함된 사진을 숨깁니다.</small></div>
+              <form className="exclusion-form" onSubmit={addExcludedTerms}>
+                <input value={excludedInput} onChange={(event) => setExcludedInput(event.target.value)} placeholder="예: 음식, 자동차 (쉼표로 구분)" maxLength={240} aria-label="추가할 제외어" />
+                <button type="submit" disabled={!excludedInput.trim()}>추가</button>
+              </form>
+              <div className="exclusion-list" aria-label="현재 제외어">
+                {excludedTerms.map((term) => <button type="button" className="exclusion-chip" key={term} onClick={() => void removeExcludedTerm(term)} title={`${term} 제외어 삭제`}>{term}<span aria-hidden="true">×</span></button>)}
+              </div>
+            </div>
             <div className="condition-row" aria-live="polite">
               {(conditions.tag || conditions.location) ? <><span>현재 조건</span>{conditions.tag && <b>#{conditions.tag}</b>}{conditions.location && <b>⌖ {conditions.location}</b>}</> : <span>조건 없이 오늘의 추천 사진을 만나보세요.</span>}
               {recentSearches.length > 0 && <><span className="recent-label">최근 검색</span>{recentSearches.map((item) => <button className="recent-search" type="button" key={`${item.source}-${item.tag}-${item.location}`} onClick={() => void searchRecent(item)}>{searchLabel(item)}</button>)}</>}

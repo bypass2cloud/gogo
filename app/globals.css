@@ -32,6 +32,18 @@ h1 { max-width:1000px; margin:18px 0 20px; font-size:clamp(48px,7.2vw,104px); li
 .search-card button, .photo-actions button { border:0; cursor:pointer; font-weight:800; }
 .search-card button { min-height:54px; padding:0 24px; border-radius:8px; background:var(--ink); color:white; }
 .search-card button span { color:var(--orange); margin-left:14px; }
+.exclusion-settings { max-width:1100px; margin-top:14px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.24); }
+.exclusion-heading { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
+.exclusion-heading span { font-size:11px; font-weight:900; letter-spacing:.08em; }
+.exclusion-heading small { color:var(--muted); font-size:11px; }
+.exclusion-form { display:flex; gap:8px; max-width:560px; }
+.exclusion-form input { flex:1; min-width:0; padding:9px 11px; border:1px solid var(--line); border-radius:7px; outline:0; background:rgba(255,255,255,.5); color:var(--ink); font-size:13px; }
+.exclusion-form input:focus { border-color:var(--orange); }
+.exclusion-form button { min-height:38px; padding:0 16px; border:0; border-radius:7px; background:var(--ink); color:white; cursor:pointer; font-size:12px; font-weight:800; }
+.exclusion-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.exclusion-chip { display:inline-flex; align-items:center; gap:7px; padding:5px 9px; border:1px solid #b9b2a5; border-radius:999px; background:transparent; color:var(--ink); cursor:pointer; font-size:11px; }
+.exclusion-chip span { color:var(--orange); font-size:15px; line-height:1; }
+.exclusion-chip:hover { border-color:var(--orange); }
 .condition-row { display:flex; flex-wrap:wrap; gap:9px; align-items:center; min-height:29px; margin-top:18px; color:var(--muted); font-size:12px; }
 .condition-row b { padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--ink); }
 .condition-row .recent-label { margin-left:8px; color:var(--muted); }

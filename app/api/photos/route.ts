@@ -196,6 +196,22 @@ function matchesOpenverse(photo: OpenversePhoto, tag: string, location: string) 
   return requiredTerms.every((term) => haystack.includes(term));
 }
 
+function containsExcludedTerm(text: string, excludedTerms: string[]) {
+  const haystack = normalizeSearchText(text);
+  return excludedTerms.some((term) => {
+    const normalized = normalizeSearchText(term);
+    return normalized && haystack.includes(normalized);
+  });
+}
+
+function isExcludedPexels(photo: PexelsPhoto, excludedTerms: string[]) {
+  return containsExcludedTerm(photo.alt ?? "", excludedTerms);
+}
+
+function isExcludedOpenverse(photo: OpenversePhoto, excludedTerms: string[]) {
+  return containsExcludedTerm([photo.title, photo.description, ...(photo.tags ?? []).map((tag) => typeof tag === "string" ? tag : tag.name ?? "")].filter(Boolean).join(" "), excludedTerms);
+}
+
 function toOpenverseRecord(raw: OpenversePhoto, location: string): PhotoRecord {
   const title = cleanPhotoTitle(raw.title);
   return {
@@ -225,6 +241,7 @@ export async function GET(request: Request) {
   const location = (url.searchParams.get("location") ?? "").trim().slice(0, 120);
   const source = url.searchParams.get("source") === "openverse" ? "openverse" : url.searchParams.get("source") === "all" ? "all" : "pexels";
   const exclude = url.searchParams.get("exclude") ?? "";
+  const excludedTerms = (url.searchParams.get("excludeTerms") ?? "").split(",").map((item) => item.trim().slice(0, 60)).filter(Boolean).slice(0, 40);
   const excludedIds = new Set(exclude.split(",").map((item) => item.trim()).filter(Boolean));
   const nonce = Number(url.searchParams.get("nonce") ?? Date.now());
   const apiKey = (env as unknown as { PEXELS_API_KEY?: string }).PEXELS_API_KEY?.trim();
@@ -233,7 +250,7 @@ export async function GET(request: Request) {
   const openverseBootstrapToken = (env as unknown as { OPENVERSE_ACCESS_TOKEN?: string }).OPENVERSE_ACCESS_TOKEN?.trim();
 
   if (!apiKey && source === "pexels") {
-    const available = demos.filter((photo) => !excludedIds.has(photo.id));
+    const available = demos.filter((photo) => !excludedIds.has(photo.id) && !containsExcludedTerm([photo.title, photo.description, ...photo.tags].join(" "), excludedTerms));
     const photo = available[Math.abs(nonce) % available.length] ?? demos[0];
     return Response.json({ photo, demo: true });
   }
@@ -244,13 +261,13 @@ export async function GET(request: Request) {
       (source !== "openverse" && apiKey) ? (searchTerms ? pexels("/search", apiKey, { query: searchTerms, locale: "ko-KR", per_page: "80", page: "1" }) : pexels("/curated", apiKey, { per_page: "80", page: "1" })) : Promise.resolve({ photos: [] }),
       source !== "pexels" ? openverseSearch({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "", nonce, openverseBootstrapToken ?? "") : Promise.resolve({ results: [] }),
     ]);
-    const pexelsList = (pexelsData.photos ?? []).filter((item) => !excludedIds.has(`pexels-${item.id}`) && (!searchTerms || matchesEveryCondition(item, tag, location)));
-    const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && (!searchTerms || matchesOpenverse(item, tag, location)));
+    const pexelsList = (pexelsData.photos ?? []).filter((item) => !excludedIds.has(`pexels-${item.id}`) && !isExcludedPexels(item, excludedTerms) && (!searchTerms || matchesEveryCondition(item, tag, location)));
+    const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && !isExcludedOpenverse(item, excludedTerms) && (!searchTerms || matchesOpenverse(item, tag, location)));
     const candidates = source === "openverse" ? openverseList.map((item) => toOpenverseRecord(item, location)) : [
       ...pexelsList.map((raw) => ({
         id: `pexels-${raw.id}`, title: cleanPhotoTitle(raw.alt), description: raw.alt?.trim() || "Pexels 사진가가 공개한 사진입니다.", imageUrl: raw.src.large2x ?? raw.src.landscape ?? raw.src.large ?? raw.src.original, originalUrl: raw.src.original, sourceUrl: raw.url, ownerId: raw.photographer_url || raw.url, ownerName: raw.photographer || "Pexels Photographer", dateTaken: null, dateUploaded: null, latitude: null, longitude: null, locationName: location || null, tags: [], license: "Pexels License", width: raw.width || null, height: raw.height || null,
       } satisfies PhotoRecord)),
-      ...openverseList.map((item) => toOpenverseRecord(item, location, tag)),
+      ...openverseList.map((item) => toOpenverseRecord(item, location)),
     ];
     if (!candidates.length) return Response.json({ error: "선택한 출처에서 모든 검색 조건에 맞는 사진을 찾지 못했습니다." }, { status: 404 });
     return Response.json({ photo: candidates[Math.abs(nonce) % candidates.length], demo: false });
