@@ -353,7 +353,6 @@ export default function Home() {
             <div className="photo-frame">
               <img src={photo.imageUrl} alt={photo.title} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
-              <div className="photo-counter">ONE PHOTO · ONE MOMENT</div>
               <div className="photo-actions">
                 <div className="save-cluster">
                   <select value={activeAlbumId} onChange={(event) => void selectAlbum(Number(event.target.value))} aria-label="사진을 저장할 앨범">
