@@ -7,6 +7,8 @@ const openverseEndpoint = "https://api.openverse.org/v1/images/";
 const openverseTokenEndpoint = "https://api.openverse.org/v1/auth_tokens/token/";
 let openverseTokenPromise: Promise<string> | null = null;
 let openverseTokenExpiresAt = 0;
+let openverseRateLimitedUntil = 0;
+const openverseResponseCache = new Map<string, { expiresAt: number; data: OpenverseResponse }>();
 
 const demos: PhotoRecord[] = [
   {
@@ -101,6 +103,8 @@ type OpenversePhoto = {
   tags?: Array<{ name?: string } | string>;
 };
 
+type OpenverseResponse = { results?: OpenversePhoto[]; page_count?: number; page?: number };
+
 async function pexels(path: string, apiKey: string, params: Record<string, string>) {
   const query = new URLSearchParams(params);
   const response = await fetch(`${endpoint}${path}?${query}`, {
@@ -156,9 +160,22 @@ async function getOpenverseToken(clientId: string, clientSecret: string, bootstr
 async function openverse(params: Record<string, string>, clientId: string, clientSecret: string, bootstrapToken = "") {
   const token = await getOpenverseToken(clientId, clientSecret, bootstrapToken);
   const query = new URLSearchParams(params);
+  const cacheKey = query.toString();
+  const cached = openverseResponseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  if (openverseRateLimitedUntil > Date.now()) throw new Error("Openverse에서 사진을 불러오지 못했습니다. (429)");
   const response = await fetch(`${openverseEndpoint}?${query}`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}`, "User-Agent": "FILMPICK/1.0 (photo discovery)" } });
-  if (!response.ok) throw new Error(`Openverse에서 사진을 불러오지 못했습니다. (${response.status})`);
-  return response.json() as Promise<{ results?: OpenversePhoto[]; page_count?: number; page?: number }>;
+  if (!response.ok) {
+    if (response.status === 429) openverseRateLimitedUntil = Date.now() + 30_000;
+    throw new Error(`Openverse에서 사진을 불러오지 못했습니다. (${response.status})`);
+  }
+  const data = await response.json() as OpenverseResponse;
+  openverseResponseCache.set(cacheKey, { expiresAt: Date.now() + 30_000, data });
+  if (openverseResponseCache.size > 80) {
+    const oldestKey = openverseResponseCache.keys().next().value;
+    if (oldestKey) openverseResponseCache.delete(oldestKey);
+  }
+  return data;
 }
 
 async function openverseSearch(params: Record<string, string>, clientId: string, clientSecret: string, nonce: number, bootstrapToken = "") {
@@ -257,9 +274,13 @@ export async function GET(request: Request) {
 
   try {
     const searchTerms = [tag, location].filter(Boolean).join(" ");
+    const openverseRequest = source !== "pexels"
+      ? openverseSearch({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "", nonce, openverseBootstrapToken ?? "")
+        .catch((error) => source === "all" ? { results: [] } : Promise.reject(error))
+      : Promise.resolve({ results: [] });
     const [pexelsData, openverseData] = await Promise.all([
       (source !== "openverse" && apiKey) ? (searchTerms ? pexels("/search", apiKey, { query: searchTerms, locale: "ko-KR", per_page: "80", page: "1" }) : pexels("/curated", apiKey, { per_page: "80", page: "1" })) : Promise.resolve({ photos: [] }),
-      source !== "pexels" ? openverseSearch({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "", nonce, openverseBootstrapToken ?? "") : Promise.resolve({ results: [] }),
+      openverseRequest,
     ]);
     const pexelsList = (pexelsData.photos ?? []).filter((item) => !excludedIds.has(`pexels-${item.id}`) && !isExcludedPexels(item, excludedTerms) && (!searchTerms || matchesEveryCondition(item, tag, location)));
     const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && !excludedIds.has(`openverse-${item.id}`) && !isExcludedOpenverse(item, excludedTerms) && (!searchTerms || matchesOpenverse(item, tag, location)));
