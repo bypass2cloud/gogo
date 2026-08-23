@@ -6,6 +6,7 @@ import type { AlbumItem, AlbumSummary, CommentRecord, PhotoRecord } from "../lib
 type SearchConditions = { tag: string; location: string; source: "pexels" | "openverse" | "all" };
 
 const conditionsStorageKey = "filmpick-search-conditions";
+const recentSearchesStorageKey = "filmpick-recent-searches";
 
 const initialPhoto: PhotoRecord = {
   id: "loading",
@@ -49,6 +50,24 @@ function getSavedConditions(): SearchConditions {
   }
 }
 
+function getSavedRecentSearches(): SearchConditions[] {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(recentSearchesStorageKey) ?? "[]") as unknown;
+    if (!Array.isArray(saved)) return [];
+    return saved.filter((item): item is SearchConditions => {
+      if (!item || typeof item !== "object") return false;
+      const candidate = item as Partial<SearchConditions>;
+      return typeof candidate.tag === "string" && typeof candidate.location === "string" && (candidate.source === "pexels" || candidate.source === "openverse" || candidate.source === "all") && Boolean(candidate.tag.trim() || candidate.location.trim());
+    }).slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+function searchLabel(search: SearchConditions) {
+  return [search.tag, search.location].filter(Boolean).join(" · ");
+}
+
 function formatDate(value: string | null) {
   if (!value) return "기록 없음";
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -72,6 +91,7 @@ export default function Home() {
   const [location, setLocation] = useState("");
   const [source, setSource] = useState<SearchConditions["source"]>("pexels");
   const [conditions, setConditions] = useState<SearchConditions>({ tag: "", location: "", source: "pexels" });
+  const [recentSearches, setRecentSearches] = useState<SearchConditions[]>([]);
   const [photo, setPhoto] = useState<PhotoRecord>(initialPhoto);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
@@ -162,6 +182,7 @@ export default function Home() {
   useEffect(() => {
     const id = getDeviceId();
     const savedConditions = getSavedConditions();
+    setRecentSearches(getSavedRecentSearches());
     setDeviceId(id);
     setTag(savedConditions.tag);
     setLocation(savedConditions.location);
@@ -174,11 +195,28 @@ export default function Home() {
   function rememberConditions(next: SearchConditions) {
     setConditions(next);
     window.localStorage.setItem(conditionsStorageKey, JSON.stringify(next));
+    if (next.tag || next.location) {
+      setRecentSearches((previous) => {
+        const nextSearches = [next, ...previous.filter((item) => item.tag !== next.tag || item.location !== next.location || item.source !== next.source)].slice(0, 10);
+        window.localStorage.setItem(recentSearchesStorageKey, JSON.stringify(nextSearches));
+        return nextSearches;
+      });
+    }
   }
 
   async function search(event: FormEvent) {
     event.preventDefault();
     const next = { tag: tag.trim(), location: location.trim(), source };
+    recentPhotoIds.current = [];
+    rememberConditions(next);
+    setView("discover");
+    await fetchPhoto(next);
+  }
+
+  async function searchRecent(next: SearchConditions) {
+    setTag(next.tag);
+    setLocation(next.location);
+    setSource(next.source);
     recentPhotoIds.current = [];
     rememberConditions(next);
     setView("discover");
@@ -354,6 +392,7 @@ export default function Home() {
             </form>
             <div className="condition-row" aria-live="polite">
               {(conditions.tag || conditions.location) ? <><span>현재 조건</span>{conditions.tag && <b>#{conditions.tag}</b>}{conditions.location && <b>⌖ {conditions.location}</b>}</> : <span>조건 없이 오늘의 추천 사진을 만나보세요.</span>}
+              {recentSearches.length > 0 && <><span className="recent-label">최근 검색</span>{recentSearches.map((item) => <button className="recent-search" type="button" key={`${item.source}-${item.tag}-${item.location}`} onClick={() => void searchRecent(item)}>{searchLabel(item)}</button>)}</>}
             </div>
             {demo && <p className="demo-note">Pexels API 키 연결 전 데모 모드입니다. 키를 추가하면 같은 화면에서 실제 Pexels 사진을 검색합니다.</p>}
           </section>

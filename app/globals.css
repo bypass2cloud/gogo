@@ -34,6 +34,9 @@ h1 { max-width:1000px; margin:18px 0 20px; font-size:clamp(48px,7.2vw,104px); li
 .search-card button span { color:var(--orange); margin-left:14px; }
 .condition-row { display:flex; flex-wrap:wrap; gap:9px; align-items:center; min-height:29px; margin-top:18px; color:var(--muted); font-size:12px; }
 .condition-row b { padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--ink); }
+.condition-row .recent-label { margin-left:8px; color:var(--muted); }
+.condition-row .recent-search { border:1px solid var(--line); border-radius:999px; padding:6px 10px; background:transparent; color:var(--ink); cursor:pointer; font:inherit; }
+.condition-row .recent-search:hover, .condition-row .recent-search:focus-visible { border-color:var(--orange); color:var(--orange); outline:none; }
 .demo-note { max-width:720px; margin:12px 0 0; color:#9c4a30; font-size:12px; line-height:1.6; }
 .photo-stage { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(340px,.75fr); min-height:720px; background:var(--ink); color:white; }
 .photo-frame { position:relative; min-height:690px; overflow:hidden; background:#303b39; }
