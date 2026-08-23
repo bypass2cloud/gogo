@@ -420,9 +420,6 @@ export default function Home() {
 
   function openAlbumPhoto(item: AlbumItem) {
     setPhoto(item);
-    const itemSource = item.id.startsWith("openverse-") ? "openverse" : "pexels";
-    setSource(itemSource);
-    setConditions({ tag: "", location: "", source: itemSource });
     setView("discover");
     setImageLoading(true);
     void loadComments(item.id);
