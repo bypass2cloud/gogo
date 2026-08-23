@@ -189,7 +189,7 @@ export async function GET(request: Request) {
     const searchTerms = [tag, location].filter(Boolean).join(" ");
     const [pexelsData, openverseData] = await Promise.all([
       (source !== "openverse" && apiKey) ? (searchTerms ? pexels("/search", apiKey, { query: searchTerms, locale: "ko-KR", per_page: "80", page: "1" }) : pexels("/curated", apiKey, { per_page: "80", page: "1" })) : Promise.resolve({ photos: [] }),
-      source !== "pexels" ? openverse({ q: searchTerms || "nature", page_size: "80" }, openverseClientId ?? "", openverseClientSecret ?? "") : Promise.resolve({ results: [] }),
+      source !== "pexels" ? openverse({ q: searchTerms || "nature", page_size: "50" }, openverseClientId ?? "", openverseClientSecret ?? "") : Promise.resolve({ results: [] }),
     ]);
     const pexelsList = (pexelsData.photos ?? []).filter((item) => `pexels-${item.id}` !== exclude && (!searchTerms || matchesEveryCondition(item, tag, location)));
     const openverseList = (openverseData.results ?? []).filter((item) => (item.url || item.thumbnail) && `openverse-${item.id}` !== exclude && (!searchTerms || matchesOpenverse(item, tag, location)));
