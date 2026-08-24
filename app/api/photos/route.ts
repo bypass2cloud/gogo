@@ -189,6 +189,22 @@ function normalizeSearchText(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+function decodeOpenverseText(value: string | null | undefined) {
+  if (!value) return "";
+  const escaped = value
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)));
+  if (!/[\u0080-\u00ff]/.test(escaped)) return escaped;
+  try {
+    const bytes = Uint8Array.from([...escaped].map((char) => char.charCodeAt(0)).filter((code) => code <= 255));
+    const decoded = new TextDecoder("euc-kr").decode(bytes);
+    if (/\p{Script=Hangul}/u.test(decoded) && !decoded.includes("�")) return decoded;
+  } catch {
+    // Some runtimes only provide UTF-8 decoding; the escaped value is still preferable to throwing.
+  }
+  return escaped;
+}
+
 function cleanPhotoTitle(value: string | null | undefined) {
   const cleaned = (value ?? "")
     .replace(/#[\p{L}\p{N}_-]+/gu, " ")
@@ -208,7 +224,7 @@ function matchesEveryCondition(photo: PexelsPhoto, tag: string, location: string
 }
 
 function matchesOpenverse(photo: OpenversePhoto, tag: string, location: string) {
-  const haystack = normalizeSearchText([photo.title, photo.description, ...(photo.tags ?? []).map((tag) => typeof tag === "string" ? tag : tag.name ?? "")].filter(Boolean).join(" "));
+  const haystack = normalizeSearchText([decodeOpenverseText(photo.title), decodeOpenverseText(photo.description), ...(photo.tags ?? []).map((tag) => decodeOpenverseText(typeof tag === "string" ? tag : tag.name ?? ""))].filter(Boolean).join(" "));
   const requiredTerms = [tag, location].flatMap((value) => value.split(/[\s,]+/)).map(normalizeSearchText).filter(Boolean);
   return requiredTerms.every((term) => haystack.includes(term));
 }
@@ -226,15 +242,15 @@ function isExcludedPexels(photo: PexelsPhoto, excludedTerms: string[]) {
 }
 
 function isExcludedOpenverse(photo: OpenversePhoto, excludedTerms: string[]) {
-  return containsExcludedTerm([photo.title, photo.description, ...(photo.tags ?? []).map((tag) => typeof tag === "string" ? tag : tag.name ?? "")].filter(Boolean).join(" "), excludedTerms);
+  return containsExcludedTerm([decodeOpenverseText(photo.title), decodeOpenverseText(photo.description), ...(photo.tags ?? []).map((tag) => decodeOpenverseText(typeof tag === "string" ? tag : tag.name ?? ""))].filter(Boolean).join(" "), excludedTerms);
 }
 
 function toOpenverseRecord(raw: OpenversePhoto, location: string): PhotoRecord {
-  const title = cleanPhotoTitle(raw.title);
+  const title = cleanPhotoTitle(decodeOpenverseText(raw.title));
   return {
     id: `openverse-${raw.id}`,
     title,
-    description: raw.description?.trim() || title,
+    description: decodeOpenverseText(raw.description).trim() || title,
     imageUrl: raw.url || raw.thumbnail || "https://openverse.org/",
     originalUrl: raw.url || raw.thumbnail || null,
     sourceUrl: raw.foreign_landing_url || "https://openverse.org/",
@@ -245,7 +261,7 @@ function toOpenverseRecord(raw: OpenversePhoto, location: string): PhotoRecord {
     latitude: null,
     longitude: null,
     locationName: location || null,
-    tags: (raw.tags ?? []).map((item) => typeof item === "string" ? item : item.name ?? "").filter(Boolean).slice(0, 16),
+    tags: (raw.tags ?? []).map((item) => decodeOpenverseText(typeof item === "string" ? item : item.name ?? "")).filter(Boolean).slice(0, 16),
     license: [raw.license, raw.license_version].filter(Boolean).join(" ") || null,
     width: raw.width || null,
     height: raw.height || null,

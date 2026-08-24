@@ -91,6 +91,20 @@ function normalizeSearchTerm(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+function decodeOpenverseText(value: string) {
+  const escaped = value
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)));
+  if (!/[\u0080-\u00ff]/.test(escaped)) return escaped;
+  try {
+    const decoded = new TextDecoder("euc-kr").decode(Uint8Array.from([...escaped].map((char) => char.charCodeAt(0)).filter((code) => code <= 255)));
+    if (/\p{Script=Hangul}/u.test(decoded) && !decoded.includes("�")) return decoded;
+  } catch {
+    // Keep the decoded escape text when a browser lacks EUC-KR support.
+  }
+  return escaped;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "기록 없음";
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -141,7 +155,7 @@ export default function Home() {
   const activeAlbum = useMemo(() => albums.find((item) => item.id === activeAlbumId) ?? null, [albums, activeAlbumId]);
   const totalSaved = useMemo(() => albums.reduce((sum, item) => sum + item.itemCount, 0), [albums]);
   const recentSearchTerms = useMemo(() => new Set(recentSearches.flatMap((item) => [item.tag, item.location].flatMap((value) => [value, ...value.split(/[\s,]+/)]).map(normalizeSearchTerm).filter(Boolean))), [recentSearches]);
-  const visibleTags = useMemo(() => photo.tags.filter((item) => !recentSearchTerms.has(normalizeSearchTerm(item))).slice(0, 8), [photo.tags, recentSearchTerms]);
+  const visibleTags = useMemo(() => photo.tags.map(decodeOpenverseText).filter((item) => !recentSearchTerms.has(normalizeSearchTerm(item))).slice(0, 8), [photo.tags, recentSearchTerms]);
 
   const loadAlbumItems = useCallback(async (id: string, albumId: number) => {
     try {
