@@ -219,12 +219,14 @@ export default function Home() {
       source: urlSource === "pexels" || urlSource === "openverse" ? urlSource : "all",
     };
     const initialConditions = hasUrlConditions ? urlConditions : savedConditions;
+    const initialQuery = [initialConditions.tag, initialConditions.location].filter(Boolean).join(" ");
+    const displayConditions = { ...initialConditions, tag: initialQuery, location: "" };
     setDeviceId(id);
-    setTag(initialConditions.tag);
-    setLocation(initialConditions.location);
+    setTag(initialQuery);
+    setLocation("");
     setSource(initialConditions.source);
-    setConditions(initialConditions);
-    if (hasUrlConditions) rememberConditions(initialConditions);
+    setConditions(displayConditions);
+    if (hasUrlConditions) rememberConditions(displayConditions);
     void loadAlbums(id);
     void fetchPhoto(initialConditions, "", savedExcludedTerms);
   }, [fetchPhoto, loadAlbums]);
@@ -267,7 +269,7 @@ export default function Home() {
 
   async function search(event: FormEvent) {
     event.preventDefault();
-    const next = { tag: tag.trim(), location: location.trim(), source };
+    const next = { tag: tag.trim(), location: "", source };
     recentPhotoIds.current = [];
     rememberConditions(next);
     setView("discover");
@@ -275,7 +277,7 @@ export default function Home() {
   }
 
   async function searchRecent(next: SearchConditions) {
-    const allSourceNext = { ...next, source: "all" as const };
+    const allSourceNext = { tag: [next.tag, next.location].filter(Boolean).join(" "), location: "", source: "all" as const };
     setTag(allSourceNext.tag);
     setLocation(allSourceNext.location);
     setSource(allSourceNext.source);
@@ -444,8 +446,7 @@ export default function Home() {
         <>
           <section className="hero" id="discover">
             <form className="search-card" onSubmit={search}>
-              <label><span>태그</span><input name="tag" value={tag} onChange={(event) => setTag(event.target.value)} placeholder="예: 고양이, 건축, 여름" maxLength={120} /></label>
-              <label><span>위치</span><input name="location" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="예: 서울, 파리, 제주" maxLength={120} /></label>
+              <label><span>검색어</span><input name="query" value={tag} onChange={(event) => setTag(event.target.value)} placeholder="예: 서울 고양이, 파리 건축, 여름" maxLength={120} /></label>
               <label className="source-field"><span>출처</span><select name="source" value={source} onChange={(event) => setSource(event.target.value as SearchConditions["source"])}><option value="pexels">Pexels</option><option value="openverse">Openverse</option><option value="all">모두</option></select></label>
               <button type="submit" disabled={loading}>사진 찾기 <span aria-hidden="true">→</span></button>
             </form>
