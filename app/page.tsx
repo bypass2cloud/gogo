@@ -56,14 +56,19 @@ function getSavedRecentSearches(): SearchConditions[] {
   try {
     const saved = JSON.parse(window.localStorage.getItem(recentSearchesStorageKey) ?? "[]") as unknown;
     if (!Array.isArray(saved)) return [];
-    return saved.filter((item): item is SearchConditions => {
+    const valid = saved.filter((item): item is SearchConditions => {
       if (!item || typeof item !== "object") return false;
       const candidate = item as Partial<SearchConditions>;
       return typeof candidate.tag === "string" && typeof candidate.location === "string" && (candidate.source === "pexels" || candidate.source === "openverse" || candidate.source === "all") && Boolean(candidate.tag.trim() || candidate.location.trim());
-    }).slice(0, 10);
+    });
+    return valid.filter((item, index) => valid.findIndex((candidate) => recentSearchKey(candidate) === recentSearchKey(item)) === index).slice(0, 10);
   } catch {
     return [];
   }
+}
+
+function recentSearchKey(search: SearchConditions) {
+  return normalizeSearchTerm([search.tag, search.location].filter(Boolean).join(" "));
 }
 
 function getSavedExcludedTerms() {
@@ -260,7 +265,7 @@ export default function Home() {
     window.localStorage.setItem(conditionsStorageKey, JSON.stringify(next));
     if (next.tag || next.location) {
       setRecentSearches((previous) => {
-        const nextSearches = [next, ...previous.filter((item) => item.tag !== next.tag || item.location !== next.location || item.source !== next.source)].slice(0, 10);
+        const nextSearches = [next, ...previous.filter((item) => recentSearchKey(item) !== recentSearchKey(next))].slice(0, 10);
         window.localStorage.setItem(recentSearchesStorageKey, JSON.stringify(nextSearches));
         return nextSearches;
       });
