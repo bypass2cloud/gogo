@@ -486,6 +486,7 @@ export default function Home() {
             <div className="photo-frame">
               <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} title="더블클릭하여 다른 사진 보기" onDoubleClick={() => { if (!loading) void fetchPhoto(conditions, photo.id); }} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
+              <span className="double-click-hint">사진을 더블클릭하면 다른 사진</span>
               <div className="photo-actions">
                 <div className="save-cluster">
                   <select value={activeAlbumId} onChange={(event) => void selectAlbum(Number(event.target.value))} aria-label="사진을 저장할 앨범">
