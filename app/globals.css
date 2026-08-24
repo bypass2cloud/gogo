@@ -44,6 +44,7 @@ h1 { max-width:1000px; margin:18px 0 20px; font-size:clamp(48px,7.2vw,104px); li
 .exclusion-chip { display:inline-flex; align-items:center; gap:7px; padding:5px 9px; border:1px solid #b9b2a5; border-radius:999px; background:transparent; color:var(--ink); cursor:pointer; font-size:11px; }
 .exclusion-chip span { color:var(--orange); font-size:15px; line-height:1; }
 .exclusion-chip:hover { border-color:var(--orange); }
+.exclusion-settings-bottom { margin:0 5vw 80px; max-width:none; }
 .condition-row { display:flex; flex-wrap:wrap; gap:9px; align-items:center; min-height:29px; margin-top:18px; color:var(--muted); font-size:12px; }
 .condition-row b { padding:6px 10px; border:1px solid var(--line); border-radius:999px; color:var(--ink); }
 .condition-row .recent-label { margin-left:8px; color:var(--muted); }
@@ -163,6 +164,7 @@ footer a { color:var(--ink); font-size:12px; font-weight:800; }
   .photo-frame { min-height:65vh; }
   .photo-caption { min-height:640px; padding:42px 24px; }
   .comments-section { padding:70px 20px 85px; }
+  .exclusion-settings-bottom { margin:0 20px 55px; }
   .section-heading { align-items:flex-start; flex-direction:column; }
   .album-section { padding:55px 20px 90px; }
   .album-manager { margin-top:-5px; }

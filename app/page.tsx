@@ -449,16 +449,6 @@ export default function Home() {
               <label className="source-field"><span>출처</span><select name="source" value={source} onChange={(event) => setSource(event.target.value as SearchConditions["source"])}><option value="pexels">Pexels</option><option value="openverse">Openverse</option><option value="all">모두</option></select></label>
               <button type="submit" disabled={loading}>사진 찾기 <span aria-hidden="true">→</span></button>
             </form>
-            <div className="exclusion-settings">
-              <div className="exclusion-heading"><span>제외어</span><small>제목·설명·태그에 포함된 사진을 숨깁니다.</small></div>
-              <form className="exclusion-form" onSubmit={addExcludedTerms}>
-                <input value={excludedInput} onChange={(event) => setExcludedInput(event.target.value)} placeholder="예: 음식, 자동차 (쉼표로 구분)" maxLength={240} aria-label="추가할 제외어" />
-                <button type="submit" disabled={!excludedInput.trim()}>추가</button>
-              </form>
-              <div className="exclusion-list" aria-label="현재 제외어">
-                {excludedTerms.map((term) => <button type="button" className="exclusion-chip" key={term} onClick={() => void removeExcludedTerm(term)} title={`${term} 제외어 삭제`}>{term}<span aria-hidden="true">×</span></button>)}
-              </div>
-            </div>
             <div className="condition-row" aria-live="polite">
               {(conditions.tag || conditions.location) ? <><span>현재 조건</span>{conditions.tag && <b>#{conditions.tag}</b>}{conditions.location && <b>⌖ {conditions.location}</b>}</> : <span>조건 없이 오늘의 추천 사진을 만나보세요.</span>}
               {recentSearches.length > 0 && <><span className="recent-label">최근 검색</span>{recentSearches.map((item) => <button className="recent-search" type="button" key={`${item.source}-${item.tag}-${item.location}`} onClick={() => void searchRecent(item)}>{searchLabel(item)}</button>)}</>}
@@ -512,6 +502,17 @@ export default function Home() {
               <div className="comment-list">
                 {comments.length ? comments.map((comment) => <article className="comment" key={comment.id}><div><b>{comment.authorName}</b><time>{formatDate(comment.createdAt)}</time></div><p>{comment.body}</p></article>) : <div className="empty-comments">아직 코멘트가 없습니다.<br />첫 감상을 남겨보세요.</div>}
               </div>
+            </div>
+          </section>
+
+          <section className="exclusion-settings exclusion-settings-bottom" aria-label="제외어 관리">
+            <div className="exclusion-heading"><span>제외어 관리</span><small>제목·설명·태그에 포함된 사진을 숨깁니다.</small></div>
+            <form className="exclusion-form" onSubmit={addExcludedTerms}>
+              <input value={excludedInput} onChange={(event) => setExcludedInput(event.target.value)} placeholder="예: 음식, 자동차 (쉼표로 구분)" maxLength={240} aria-label="추가할 제외어" />
+              <button type="submit" disabled={!excludedInput.trim()}>추가</button>
+            </form>
+            <div className="exclusion-list" aria-label="현재 제외어">
+              {excludedTerms.map((term) => <button type="button" className="exclusion-chip" key={term} onClick={() => void removeExcludedTerm(term)} title={`${term} 제외어 삭제`}>{term}<span aria-hidden="true">×</span></button>)}
             </div>
           </section>
         </>
