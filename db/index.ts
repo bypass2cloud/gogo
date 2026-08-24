@@ -74,6 +74,11 @@ export async function ensureSchema() {
       access_token TEXT NOT NULL,
       expires_at INTEGER NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS global_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
   ]);
   initialized = true;
 }

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { ensureSchema, getD1 } from "../../../db";
+import { defaultExcludedTerms, normalizeExcludedTerms } from "../../../lib/exclusions";
 import type { PhotoRecord } from "../../../lib/types";
 
 const endpoint = "https://api.pexels.com/v1";
@@ -274,13 +275,21 @@ export async function GET(request: Request) {
   const location = (url.searchParams.get("location") ?? "").trim().slice(0, 120);
   const source = url.searchParams.get("source") === "openverse" ? "openverse" : url.searchParams.get("source") === "all" ? "all" : "pexels";
   const exclude = url.searchParams.get("exclude") ?? "";
-  const excludedTerms = (url.searchParams.get("excludeTerms") ?? "").split(",").map((item) => item.trim().slice(0, 60)).filter(Boolean).slice(0, 40);
+  let excludedTerms = (url.searchParams.get("excludeTerms") ?? "").split(",").map((item) => item.trim().slice(0, 60)).filter(Boolean).slice(0, 40);
   const excludedIds = new Set(exclude.split(",").map((item) => item.trim()).filter(Boolean));
   const nonce = Number(url.searchParams.get("nonce") ?? Date.now());
   const apiKey = (env as unknown as { PEXELS_API_KEY?: string }).PEXELS_API_KEY?.trim();
   const openverseClientId = (env as unknown as { OPENVERSE_CLIENT_ID?: string }).OPENVERSE_CLIENT_ID?.trim();
   const openverseClientSecret = (env as unknown as { OPENVERSE_CLIENT_SECRET?: string }).OPENVERSE_CLIENT_SECRET?.trim();
   const openverseBootstrapToken = (env as unknown as { OPENVERSE_ACCESS_TOKEN?: string }).OPENVERSE_ACCESS_TOKEN?.trim();
+
+  try {
+    await ensureSchema();
+    const setting = await getD1().prepare("SELECT value FROM global_settings WHERE key = ?").bind("excluded_terms").first<{ value: string }>();
+    excludedTerms = setting ? normalizeExcludedTerms(JSON.parse(setting.value)) : defaultExcludedTerms;
+  } catch {
+    // The request-provided terms keep filtering available during a temporary settings failure.
+  }
 
   if (!apiKey && source === "pexels") {
     const available = demos.filter((photo) => !excludedIds.has(photo.id) && !containsExcludedTerm([photo.title, photo.description, ...photo.tags].join(" "), excludedTerms));

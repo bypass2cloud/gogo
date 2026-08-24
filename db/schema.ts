@@ -72,3 +72,9 @@ export const openverseTokens = sqliteTable("openverse_tokens", {
   accessToken: text("access_token").notNull(),
   expiresAt: integer("expires_at").notNull(),
 });
+
+export const globalSettings = sqliteTable("global_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

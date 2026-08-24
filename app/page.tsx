@@ -2,13 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AlbumItem, AlbumSummary, CommentRecord, PhotoRecord } from "../lib/types";
+import { defaultExcludedTerms, normalizeExcludedTerms } from "../lib/exclusions";
 
 type SearchConditions = { tag: string; location: string; source: "pexels" | "openverse" | "all" };
 
 const conditionsStorageKey = "filmpick-search-conditions";
 const recentSearchesStorageKey = "filmpick-recent-searches";
-const excludedTermsStorageKey = "filmpick-excluded-terms";
-const defaultExcludedTerms = ["교회", "성당", "예배", "미사", "church", "cathedral", "worship", "prayer", "시위", "데모", "protest", "demonstration"];
 
 const initialPhoto: PhotoRecord = {
   id: "loading",
@@ -69,18 +68,6 @@ function getSavedRecentSearches(): SearchConditions[] {
 
 function recentSearchKey(search: SearchConditions) {
   return normalizeSearchTerm([search.tag, search.location].filter(Boolean).join(" "));
-}
-
-function getSavedExcludedTerms() {
-  try {
-    const raw = window.localStorage.getItem(excludedTermsStorageKey);
-    if (raw === null) return defaultExcludedTerms;
-    const saved = JSON.parse(raw) as unknown;
-    if (!Array.isArray(saved)) return defaultExcludedTerms;
-    return [...new Set(saved.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))].slice(0, 40);
-  } catch {
-    return defaultExcludedTerms;
-  }
 }
 
 function searchLabel(search: SearchConditions) {
@@ -226,9 +213,6 @@ export default function Home() {
     const id = getDeviceId();
     const savedConditions = getSavedConditions();
     setRecentSearches(getSavedRecentSearches());
-    const savedExcludedTerms = getSavedExcludedTerms();
-    excludedTermsRef.current = savedExcludedTerms;
-    setExcludedTerms(savedExcludedTerms);
     const urlParams = new URLSearchParams(window.location.search);
     const hasUrlConditions = ["tag", "q", "location", "source"].some((key) => urlParams.has(key));
     const urlSource = urlParams.get("source");
@@ -247,29 +231,51 @@ export default function Home() {
     setConditions(displayConditions);
     if (hasUrlConditions) rememberConditions(displayConditions);
     void loadAlbums(id);
-    void fetchPhoto(initialConditions, "", savedExcludedTerms);
+    void (async () => {
+      let globalTerms = defaultExcludedTerms;
+      try {
+        const response = await fetch("/api/exclusions");
+        const data = await response.json() as { terms?: unknown };
+        if (response.ok) globalTerms = normalizeExcludedTerms(data.terms);
+      } catch {
+        // Keep the built-in defaults if the shared settings cannot be reached.
+      }
+      excludedTermsRef.current = globalTerms;
+      setExcludedTerms(globalTerms);
+      await fetchPhoto(initialConditions, "", globalTerms);
+    })();
   }, [fetchPhoto, loadAlbums]);
 
-  function persistExcludedTerms(next: string[]) {
-    const normalized = [...new Set(next.map((item) => item.trim()).filter(Boolean))].slice(0, 40);
+  async function persistExcludedTerms(next: string[]) {
+    const normalized = normalizeExcludedTerms(next);
     excludedTermsRef.current = normalized;
     setExcludedTerms(normalized);
-    window.localStorage.setItem(excludedTermsStorageKey, JSON.stringify(normalized));
-    return normalized;
+    try {
+      const response = await fetch("/api/exclusions", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ terms: normalized }) });
+      const data = await response.json() as { terms?: unknown; error?: string };
+      if (!response.ok) throw new Error(data.error);
+      const saved = normalizeExcludedTerms(data.terms);
+      excludedTermsRef.current = saved;
+      setExcludedTerms(saved);
+      return saved;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "제외어를 저장하지 못했습니다.");
+      return normalized;
+    }
   }
 
   async function addExcludedTerms(event: FormEvent) {
     event.preventDefault();
     const additions = excludedInput.split(",").map((item) => item.trim()).filter(Boolean);
     if (!additions.length) return;
-    const next = persistExcludedTerms([...excludedTerms, ...additions]);
+    const next = await persistExcludedTerms([...excludedTerms, ...additions]);
     setExcludedInput("");
     recentPhotoIds.current = [];
     await fetchPhoto(conditions, "", next);
   }
 
   async function removeExcludedTerm(term: string) {
-    const next = persistExcludedTerms(excludedTerms.filter((item) => item !== term));
+    const next = await persistExcludedTerms(excludedTerms.filter((item) => item !== term));
     recentPhotoIds.current = [];
     await fetchPhoto(conditions, "", next);
   }
