@@ -136,6 +136,7 @@ export default function Home() {
   const [commentBody, setCommentBody] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
   const [showDoubleClickHint, setShowDoubleClickHint] = useState(true);
+  const [otherPhotoClickCount, setOtherPhotoClickCount] = useState(0);
   const recentPhotoIds = useRef<string[]>([]);
   const excludedTermsRef = useRef<string[]>(defaultExcludedTerms);
 
@@ -315,9 +316,21 @@ export default function Home() {
   }
 
   function handlePhotoDoubleClick() {
+    setOtherPhotoClickCount(0);
     if (showDoubleClickHint) {
       setShowDoubleClickHint(false);
       window.localStorage.setItem("filmpick-double-click-hint-dismissed", "true");
+    }
+    if (!loading) void fetchPhoto(conditions, photo.id);
+  }
+
+  function handleOtherPhotoClick() {
+    const nextCount = otherPhotoClickCount + 1;
+    if (nextCount >= 3) {
+      setShowDoubleClickHint(true);
+      setOtherPhotoClickCount(0);
+    } else {
+      setOtherPhotoClickCount(nextCount);
     }
     if (!loading) void fetchPhoto(conditions, photo.id);
   }
@@ -504,7 +517,7 @@ export default function Home() {
                   </select>
                   <button className={isSaved ? "saved" : ""} type="button" onClick={savePhoto} aria-label={isSaved ? `${activeAlbum?.name ?? "앨범"}에 저장됨` : `${activeAlbum?.name ?? "앨범"}에 저장`} disabled={isSaved || !activeAlbumId}>{isSaved ? "♥" : "♡"}</button>
                 </div>
-                <button type="button" onClick={() => fetchPhoto(conditions, photo.id)} disabled={loading}>다른 사진 <span aria-hidden="true">↻</span></button>
+                <button type="button" onClick={handleOtherPhotoClick} disabled={loading}>다른 사진 <span aria-hidden="true">↻</span></button>
               </div>
             </div>
             <aside className="photo-caption">
