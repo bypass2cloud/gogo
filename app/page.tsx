@@ -135,6 +135,7 @@ export default function Home() {
   const [commentName, setCommentName] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
+  const [showDoubleClickHint, setShowDoubleClickHint] = useState(true);
   const recentPhotoIds = useRef<string[]>([]);
   const excludedTermsRef = useRef<string[]>(defaultExcludedTerms);
 
@@ -211,6 +212,7 @@ export default function Home() {
 
   useEffect(() => {
     const id = getDeviceId();
+    setShowDoubleClickHint(window.localStorage.getItem("filmpick-double-click-hint-dismissed") !== "true");
     const savedConditions = getSavedConditions();
     setRecentSearches(getSavedRecentSearches());
     const urlParams = new URLSearchParams(window.location.search);
@@ -310,6 +312,14 @@ export default function Home() {
     rememberConditions(allSourceNext);
     setView("discover");
     await fetchPhoto(allSourceNext);
+  }
+
+  function handlePhotoDoubleClick() {
+    if (showDoubleClickHint) {
+      setShowDoubleClickHint(false);
+      window.localStorage.setItem("filmpick-double-click-hint-dismissed", "true");
+    }
+    if (!loading) void fetchPhoto(conditions, photo.id);
   }
 
   async function savePhoto() {
@@ -484,9 +494,9 @@ export default function Home() {
 
           <section className={`photo-stage ${loading ? "is-loading" : ""}`} aria-label="발견한 사진" aria-busy={loading}>
             <div className="photo-frame">
-              <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} title="더블클릭하여 다른 사진 보기" onDoubleClick={() => { if (!loading) void fetchPhoto(conditions, photo.id); }} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
+              <img src={photo.imageUrl} alt={cleanPhotoTitle(photo.title)} title="더블클릭하여 다른 사진 보기" onDoubleClick={handlePhotoDoubleClick} onLoad={() => setImageLoading(false)} onError={() => setImageLoading(false)} className={imageLoading ? "image-pending" : ""} />
               {(loading || imageLoading) && <div className="image-loader"><span /></div>}
-              <span className="double-click-hint">사진을 더블클릭하면 다른 사진</span>
+              {showDoubleClickHint && <span className="double-click-hint">사진을 더블클릭하면 다른 사진</span>}
               <div className="photo-actions">
                 <div className="save-cluster">
                   <select value={activeAlbumId} onChange={(event) => void selectAlbum(Number(event.target.value))} aria-label="사진을 저장할 앨범">
